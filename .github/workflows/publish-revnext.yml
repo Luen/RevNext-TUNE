@@ -11,6 +11,7 @@ jobs:
         runs-on: ubuntu-latest
         permissions:
             contents: write # push tags and create releases
+            workflows: write # required when the tagged commit touches .github/workflows
         steps:
             - uses: actions/checkout@v4
               with:
