@@ -59,15 +59,18 @@ run_tune_reports(config)
 **In code:**
 
 ```python
-from revnext import download_all_reports, RevNextConfig
+from revnext import download_parts_by_bin_report, download_parts_price_list_report
 from pathlib import Path
 
-download_all_reports(
-    cookies_path=Path("revnext-cookies.json"),
-    output_dir=Path("reports"),
-    base_url="https://yoursite.revolutionnext.com.au",
-)
+base_url = "https://yoursite.revolutionnext.com.au"
+cookies = Path("revnext-cookies.json")
+out = Path("reports")
+
+download_parts_by_bin_report(cookies_path=cookies, output_path=out / "Parts_By_Bin_Location.csv", base_url=base_url)
+download_parts_price_list_report(cookies_path=cookies, output_path=out / "Parts_Price_List.csv", base_url=base_url)
 ```
+
+To run both in one go (or in parallel), see the examples in [packages/revnext/README.md](packages/revnext/README.md).
 
 ## Usage overview
 
@@ -79,7 +82,7 @@ download_all_reports(
 **RevNext (revnext)**  
 - Export cookies for your RevNext domain (e.g. Chrome → export as JSON).  
 - Set `REVOLUTIONNEXT_URL` or pass `base_url` to the download functions.  
-- Use `download_parts_price_list_report`, `download_parts_by_bin_report`, or `download_all_reports`.
+- Use `download_parts_price_list_report` and `download_parts_by_bin_report`; see the package README for examples that download both (sequential or parallel).
 
 ## Project layout
 
