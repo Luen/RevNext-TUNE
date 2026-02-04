@@ -2,31 +2,59 @@ name: Publish revnext to PyPI
 
 on:
     push:
-        tags:
-            - 'revnext-v*'
+        branches: [main, master]
+        paths:
+            - 'packages/revnext/pyproject.toml'
 
 jobs:
     publish:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  token: ${{ secrets.GITHUB_TOKEN }}
+            - name: Get version
+              id: version
+              run: |
+                  V=$(grep '^version' packages/revnext/pyproject.toml | sed -n 's/version *= *"\([^"]*\)".*/\1/p')
+                  echo "version=$V" >> $GITHUB_OUTPUT
+            - name: Skip if tag already exists
+              id: check
+              run: |
+                  git fetch --tags
+                  if git rev-parse "revnext-v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+                    echo "exists=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "exists=false" >> $GITHUB_OUTPUT
+                  fi
+            - name: Create and push tag
+              if: steps.check.outputs.exists == 'false'
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  TAG="revnext-v${{ steps.version.outputs.version }}"
+                  git tag "$TAG"
+                  git push origin "$TAG"
             - uses: actions/setup-python@v5
               with:
                   python-version: '3.10'
             - name: Install build
               run: pip install build twine
             - name: Build revnext
+              if: steps.check.outputs.exists == 'false'
               run: python -m build
               working-directory: packages/revnext
             - name: Publish to PyPI
+              if: steps.check.outputs.exists == 'false'
               env:
                   TWINE_USERNAME: __token__
                   TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
               run: twine upload packages/revnext/dist/*
             - name: Create GitHub Release
+              if: steps.check.outputs.exists == 'false'
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  TAG="${GITHUB_REF#refs/tags/}"
+                  TAG="revnext-v${{ steps.version.outputs.version }}"
                   gh release create "$TAG" --generate-notes
-              if: success()

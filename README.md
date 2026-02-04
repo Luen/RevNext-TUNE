@@ -90,12 +90,9 @@ Copy `.env.template` to `.env` and set the variables you need for TUNE and/or Re
 
 ## Publishing to PyPI
 
-CI publishes to PyPI and creates a GitHub Release when you push a **version tag**.
+CI publishes to PyPI and creates a GitHub Release when you **bump the version** in a package’s `pyproject.toml` and push to `main` (or `master`).
 
 1. Bump the version in the package’s `pyproject.toml` (e.g. `0.1.0` → `0.1.1`).
-2. Commit and push.
-3. Push a tag for the package you’re releasing:
-   - **tune-dms:** `git tag tune-dms-v0.1.1 && git push origin tune-dms-v0.1.1`
-   - **revnext:** `git tag revnext-v0.1.1 && git push origin revnext-v0.1.1`
+2. Commit and push to `main`.
 
-The matching workflow builds the package, uploads it to PyPI, and creates a GitHub Release from the tag. Ensure the repo secret **`PYPI_API_TOKEN`** is set (PyPI API token with scope for the project).
+The matching workflow runs only when that package’s `pyproject.toml` changes. It reads the new version, creates a tag (e.g. `tune-dms-v0.1.1` or `revnext-v0.1.1`), builds the package, uploads to PyPI, and creates a GitHub Release. If a tag for that version already exists, the workflow skips publishing. Ensure the repo secret **`PYPI_API_TOKEN`** is set (PyPI API token with scope for the project).
