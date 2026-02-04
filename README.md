@@ -87,3 +87,15 @@ download_all_reports(
 - **packages/revnext/** – RevNext-only package (`pip install revnext`).
 
 Copy `.env.template` to `.env` and set the variables you need for TUNE and/or RevNext.
+
+## Publishing to PyPI
+
+CI publishes to PyPI and creates a GitHub Release when you push a **version tag**.
+
+1. Bump the version in the package’s `pyproject.toml` (e.g. `0.1.0` → `0.1.1`).
+2. Commit and push.
+3. Push a tag for the package you’re releasing:
+   - **tune-dms:** `git tag tune-dms-v0.1.1 && git push origin tune-dms-v0.1.1`
+   - **revnext:** `git tag revnext-v0.1.1 && git push origin revnext-v0.1.1`
+
+The matching workflow builds the package, uploads it to PyPI, and creates a GitHub Release from the tag. Ensure the repo secret **`PYPI_API_TOKEN`** is set (PyPI API token with scope for the project).

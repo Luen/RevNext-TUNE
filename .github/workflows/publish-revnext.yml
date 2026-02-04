@@ -1,9 +1,9 @@
-name: Publish tune-dms to PyPI
+name: Publish revnext to PyPI
 
 on:
     push:
         tags:
-            - 'tune-dms-v*'
+            - 'revnext-v*'
 
 jobs:
     publish:
@@ -15,14 +15,14 @@ jobs:
                   python-version: '3.10'
             - name: Install build
               run: pip install build twine
-            - name: Build tune-dms
+            - name: Build revnext
               run: python -m build
-              working-directory: packages/tune_dms
+              working-directory: packages/revnext
             - name: Publish to PyPI
               env:
                   TWINE_USERNAME: __token__
                   TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-              run: twine upload packages/tune_dms/dist/*
+              run: twine upload packages/revnext/dist/*
             - name: Create GitHub Release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
