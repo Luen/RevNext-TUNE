@@ -11,12 +11,12 @@ jobs:
         runs-on: ubuntu-latest
         permissions:
             contents: write # push tags and create releases
-            workflows: write # required when the tagged commit touches .github/workflows
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-                  token: ${{ secrets.GITHUB_TOKEN }}
+                  # PAT required: GITHUB_TOKEN cannot push tags when the commit touches .github/workflows
+                  token: ${{ secrets.REPO_ACCESS_TOKEN }}
             - name: Get version
               id: version
               run: |
@@ -57,7 +57,7 @@ jobs:
             - name: Create GitHub Release
               if: steps.check.outputs.exists == 'false'
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
               run: |
                   TAG="tune-dms-v${{ steps.version.outputs.version }}"
                   gh release create "$TAG" --generate-notes

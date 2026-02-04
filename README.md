@@ -97,4 +97,6 @@ CI publishes to PyPI and creates a GitHub Release when you **bump the version** 
 
 The matching workflow runs only when that package’s `pyproject.toml` changes. It reads the new version, creates a tag (e.g. `tune-dms-v0.1.1` or `revnext-v0.1.1`), builds the package, uploads to PyPI, and creates a GitHub Release. If a tag for that version already exists, the workflow skips publishing.
 
-**Required repository secret:** **`PYPI_API_TOKEN`** (PyPI API token for uploading). Tag push and GitHub Release use the default `GITHUB_TOKEN`; ensure **Settings → Actions → Workflow permissions** is set to **Read and write permissions** so the workflow can push tags and create releases.
+**Required repository secrets:**
+- **`PYPI_API_TOKEN`** – PyPI API token for uploading.
+- **`REPO_ACCESS_TOKEN`** – A GitHub Personal Access Token (classic) with `repo` scope. The default `GITHUB_TOKEN` cannot push tags when the tagged commit modifies `.github/workflows/`; a PAT avoids that restriction. Create one under [GitHub → Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens), then add it under **Settings → Secrets and variables → Actions**.

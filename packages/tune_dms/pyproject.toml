@@ -22,6 +22,10 @@ dependencies = [
     "pyautogui",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Luen/RevNext-TUNE/"
+Repository = "https://github.com/Luen/RevNext-TUNE/"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["tune_dms*"]
