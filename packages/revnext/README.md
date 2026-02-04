@@ -105,4 +105,4 @@ def download_all_reports_parallel(
 
 Set `REVOLUTIONNEXT_URL` and optionally `REVOLUTIONNEXT_COOKIES_PATH`; then you can omit `base_url` and `cookies_path` in code.
 
-See the [main repo README](../README.md) for full configuration options.
+See the [main repo README](https://github.com/Luen/RevNext-TUNE) for full configuration options.
