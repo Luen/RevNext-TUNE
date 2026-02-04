@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tune-dms"
+version = "0.1.0"
+description = "TUNE DMS desktop GUI automation: login and report generation"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["tune", "dms", "gui", "automation", "reports"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pyautogui",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tune_dms*"]
+
+[tool.setuptools.package-data]
+tune_dms = ["images/*.png"]

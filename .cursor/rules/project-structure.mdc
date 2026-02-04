@@ -1,0 +1,36 @@
+---
+description: RevNext-TUNE monorepo structure, separate packages, and install strategy
+alwaysApply: true
+---
+
+# RevNext-TUNE Project Structure
+
+## Two independent packages only
+
+- **packages/tune_dms/** → installable as `tune-dms` (`pip install tune-dms`). TUNE DMS GUI automation; depends on pyautogui only; includes reference images in `tune_dms/images/`.
+- **packages/revnext/** → installable as `revnext` (`pip install revnext`). Revolution Next report downloads via REST API; depends only on `requests`.
+
+There is **no meta package**. Users who want both run:
+`pip install tune-dms revnext`
+
+Do not add a root-level installable package that depends on both. Do not add a `revnext_tune`-style shim that re-exports from both.
+
+## Layout
+
+- Root has **no** `pyproject.toml` that builds an installable package. Root contains README, .env.template, .gitignore, LICENSE only.
+- All installable code lives under **packages/** with one folder per package; each package has its own `pyproject.toml`.
+- Configuration: each package has its own `config` module (e.g. `TuneConfig`, `RevNextConfig`) with `from_env()` and optional env vars. No shared config package across the two.
+
+## DRY (Don't Repeat Yourself)
+
+- **Between packages:** Do not duplicate code across `tune_dms` and `revnext`. They are independent: no shared Python modules, no cross-imports. If logic is conceptually shared, implement it once per package in the package that needs it; do not create a third shared package unless we explicitly add one.
+- **Within a package:** Avoid duplicate logic inside the same package. Use helpers, config objects, and clear function boundaries. Reuse via composition and parameters (e.g. `base_url`, `cookies_path`) rather than copy-paste.
+- **Config/env:** Each package reads its own env vars and exposes its own config API; document in README and .env.template. No shared env module.
+
+## Editable installs
+
+From repo root:
+- `pip install -e ./packages/tune_dms`
+- `pip install -e ./packages/revnext`
+
+Users import as: `from tune_dms import ...` and `from revnext import ...`.

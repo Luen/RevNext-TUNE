@@ -1,0 +1,196 @@
+"""
+Shared utilities for Revolution Next (*.revolutionnext.com.au) report downloads.
+Cookie loading, session creation, and generic submit → poll → loadData → download flow.
+"""
+
+import json
+import time
+from pathlib import Path
+from typing import Callable
+from urllib.parse import urlparse
+
+import requests
+
+
+def _common_headers(base_url: str) -> dict:
+    """Build common request headers for the given base URL."""
+    return {
+        "accept": "*/*",
+        "accept-language": "en-AU,en-US;q=0.9,en-GB;q=0.8,en;q=0.7",
+        "content-type": "application/json; charset=UTF-8",
+        "origin": base_url,
+        "referrer": f"{base_url}/next/Fluid.html?useTabs",
+        "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    }
+
+
+def load_cookies_for_domain(cookies_path: Path, domain: str) -> list[tuple[str, str]]:
+    """Load cookies from Chrome-export JSON and return (name, value) pairs for the domain."""
+    with open(cookies_path, encoding="utf-8") as f:
+        raw = json.load(f)
+    pairs = []
+    for c in raw:
+        d = c.get("domain", "")
+        if not d:
+            continue
+        if domain == d or domain.endswith(d.lstrip(".")):
+            pairs.append((c["name"], c["value"]))
+    return pairs
+
+
+def cookie_header(pairs: list[tuple[str, str]]) -> str:
+    """Build Cookie header value from (name, value) pairs."""
+    return "; ".join(f"{name}={value}" for name, value in pairs)
+
+
+def create_session(
+    cookies_path: Path,
+    service_object: str,
+    base_url: str,
+) -> requests.Session:
+    """Create a requests Session with cookies and common headers for the given base URL and service object."""
+    parsed = urlparse(base_url)
+    domain = parsed.netloc or parsed.path
+    if not domain:
+        raise ValueError(f"Invalid base_url: {base_url}")
+    cookie_pairs = load_cookies_for_domain(cookies_path, domain)
+    if not cookie_pairs:
+        raise ValueError(
+            f"No cookies found for {domain}. Export cookies for this domain (e.g. revnext-cookies.json)."
+        )
+    session = requests.Session()
+    session.headers.update(_common_headers(base_url))
+    session.headers["cookie"] = cookie_header(cookie_pairs)
+    session.headers["x-service-object"] = service_object
+    return session
+
+
+def extract_task_id(submit_response: dict) -> str | None:
+    """Extract taskID from submitActivityTask response."""
+    for ds in submit_response.get("dataSets", []):
+        if ds.get("name") != "dsActivityTask":
+            continue
+        d = ds.get("dataSet", {}).get("dsActivityTask", {})
+        for row in d.get("ttActivityTask", []):
+            tid = row.get("taskID")
+            if tid:
+                return tid
+    return None
+
+
+def is_poll_done(poll_response: dict) -> bool:
+    """True when report is ready (autoPollResponse returns -1)."""
+    for cp in poll_response.get("ctrlProp", []):
+        if cp.get("name") == "button.autoPollResponse" and cp.get("value") == "-1":
+            return True
+    return False
+
+
+def get_response_url_from_load_data(load_data: dict) -> str | None:
+    """Extract responseUrl from loadData response (ttActivityTaskResponse)."""
+    for ds in load_data.get("dataSets", []):
+        if ds.get("name") != "dsActivityTask":
+            continue
+        d = ds.get("dataSet", {}).get("dsActivityTask", {})
+        for row in d.get("ttActivityTaskResponse", []):
+            url = row.get("responseUrl")
+            if url:
+                return url
+    return None
+
+
+def run_report_flow(
+    session: requests.Session,
+    service_object: str,
+    activity_tab_id: str,
+    get_submit_body: Callable[[], dict],
+    output_path: Path,
+    base_url: str,
+    post_submit_hook: Callable[[requests.Session], None] | None = None,
+    max_polls: int = 60,
+    poll_interval: float = 2,
+) -> Path:
+    """
+    Submit report task, poll until ready, loadData for download URL, then download CSV.
+    Optionally call post_submit_hook(session) after submit (e.g. onChoose_btn_closesubmit).
+    Returns the path where the file was saved.
+    """
+    submit_url = f"{base_url}/next/rest/si/static/submitActivityTask"
+    r = session.post(submit_url, json=get_submit_body())
+    r.raise_for_status()
+    submit_data = r.json()
+    if not submit_data.get("submittedSuccess"):
+        raise RuntimeError("submitActivityTask did not report success.")
+
+    task_id = extract_task_id(submit_data)
+    if not task_id:
+        raise RuntimeError("Could not get taskID from submit response.")
+    print(f"Task submitted: {task_id}")
+
+    if post_submit_hook:
+        post_submit_hook(session)
+
+    poll_url = f"{base_url}/next/rest/si/presenter/autoPollResponse"
+    poll_body = {
+        "_userContext_vg_coid": "03",
+        "_userContext_vg_divid": "1",
+        "_userContext_vg_dftdpt": "570",
+        "activityTabId": activity_tab_id,
+        "ctrlProp": [
+            {"name": "ttActivityTask.taskID", "prop": "SCREENVALUE", "value": task_id}
+        ],
+        "uiType": "ISC",
+    }
+    for i in range(max_polls):
+        time.sleep(poll_interval)
+        r = session.post(poll_url, json=poll_body)
+        r.raise_for_status()
+        poll_data = r.json()
+        if is_poll_done(poll_data):
+            print("Report generation complete.")
+            break
+        print(f"  Poll {i + 1}: still generating...")
+    else:
+        raise RuntimeError("Timed out waiting for report.")
+
+    load_url = f"{base_url}/next/rest/si/static/loadData"
+    load_body = {
+        "taskID": task_id,
+        "ctrlProp": [{"name": "dummy", "prop": "LOADDATA", "value": "dummy"}],
+        "parentActivity": None,
+        "historyID": "self,dummy,dummy",
+        "tabID": "self",
+        "activityType": "dummy",
+        "fluidService": "dummy",
+        "uiType": "ISC",
+        "_userContext_vg_coid": "03",
+        "_userContext_vg_divid": "1",
+        "_userContext_vg_dftdpt": "570",
+        "activityTabId": activity_tab_id,
+        "loadMode": "EDIT",
+        "loadRowid": "dummy",
+    }
+    r = session.post(load_url, json=load_body)
+    r.raise_for_status()
+    load_data = r.json()
+
+    response_url = get_response_url_from_load_data(load_data)
+    if not response_url:
+        raise RuntimeError("Could not get responseUrl from loadData.")
+
+    if not response_url.startswith("http"):
+        response_url = f"{base_url}/next/{response_url.lstrip('/')}"
+    print(f"Download URL: {response_url}")
+
+    r = session.get(response_url)
+    r.raise_for_status()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(r.content)
+    print(f"Saved: {output_path}")
+    return output_path
