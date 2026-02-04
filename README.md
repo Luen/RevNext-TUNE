@@ -95,4 +95,6 @@ CI publishes to PyPI and creates a GitHub Release when you **bump the version** 
 1. Bump the version in the package’s `pyproject.toml` (e.g. `0.1.0` → `0.1.1`).
 2. Commit and push to `main`.
 
-The matching workflow runs only when that package’s `pyproject.toml` changes. It reads the new version, creates a tag (e.g. `tune-dms-v0.1.1` or `revnext-v0.1.1`), builds the package, uploads to PyPI, and creates a GitHub Release. If a tag for that version already exists, the workflow skips publishing. Ensure the repo secret **`PYPI_API_TOKEN`** is set (PyPI API token with scope for the project).
+The matching workflow runs only when that package’s `pyproject.toml` changes. It reads the new version, creates a tag (e.g. `tune-dms-v0.1.1` or `revnext-v0.1.1`), builds the package, uploads to PyPI, and creates a GitHub Release. If a tag for that version already exists, the workflow skips publishing.
+
+**Required repository secret:** **`PYPI_API_TOKEN`** (PyPI API token for uploading). Tag push and GitHub Release use the default `GITHUB_TOKEN`; ensure **Settings → Actions → Workflow permissions** is set to **Read and write permissions** so the workflow can push tags and create releases.
