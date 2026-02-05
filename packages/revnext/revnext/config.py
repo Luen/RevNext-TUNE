@@ -35,7 +35,6 @@ class RevNextConfig:
         cls,
         *,
         base_url: Optional[str] = None,
-        tenant: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
         session_path: Optional[Path] = None,
@@ -43,24 +42,16 @@ class RevNextConfig:
     ) -> "RevNextConfig":
         """Build config from environment variables. Override any field by passing it explicitly.
 
-        Env: REVNEXT_TENANT (e.g. mikecarney) or REVOLUTIONNEXT_URL (full URL),
-        REVNEXT_USERNAME, REVNEXT_PASSWORD, optional REVNEXT_SESSION_PATH.
+        Env: REVNEXT_URL (full base URL), REVNEXT_USERNAME, REVNEXT_PASSWORD,
+        optional REVNEXT_SESSION_PATH.
         """
         if load_dotenv:
             _load_dotenv_if_available()
-        url = base_url
-        if not url and tenant is None:
-            tenant = os.getenv("REVNEXT_TENANT")
-        if not url:
-            url = os.getenv("REVOLUTIONNEXT_URL")
-        if not url and tenant:
-            url = f"https://{tenant.strip().rstrip('/')}.revolutionnext.com.au"
-        if not url:
-            url = "https://mikecarney.revolutionnext.com.au"
+        url = base_url or os.getenv("REVNEXT_URL") or "https://mikecarney.revolutionnext.com.au"
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
-        uname = username or os.getenv("REVNEXT_USERNAME") or os.getenv("REVOLUTIONNEXT_USERNAME") or ""
-        pwd = password or os.getenv("REVNEXT_PASSWORD") or os.getenv("REVOLUTIONNEXT_PASSWORD") or ""
+        uname = username or os.getenv("REVNEXT_USERNAME") or ""
+        pwd = password or os.getenv("REVNEXT_PASSWORD") or ""
         sp = session_path
         if sp is None and os.getenv("REVNEXT_SESSION_PATH"):
             sp = Path(os.getenv("REVNEXT_SESSION_PATH"))
@@ -83,14 +74,9 @@ class RevNextConfig:
 
 
 def get_revnext_base_url_from_env() -> str:
-    """Return RevNext base URL from environment (REVNEXT_TENANT or REVOLUTIONNEXT_URL)."""
+    """Return RevNext base URL from environment (REVNEXT_URL)."""
     _load_dotenv_if_available()
-    tenant = os.getenv("REVNEXT_TENANT")
-    url = os.getenv("REVOLUTIONNEXT_URL")
-    if url:
-        if not url.startswith(("http://", "https://")):
-            url = "https://" + url
-        return url
-    if tenant:
-        return f"https://{tenant.strip().rstrip('/')}.revolutionnext.com.au"
-    return "https://mikecarney.revolutionnext.com.au"
+    url = os.getenv("REVNEXT_URL") or "https://mikecarney.revolutionnext.com.au"
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    return url

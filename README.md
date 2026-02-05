@@ -53,8 +53,10 @@ run_tune_reports(config)
 
 | Variable | Description |
 |----------|-------------|
-| `REVOLUTIONNEXT_URL` | Base URL, e.g. `https://yoursite.revolutionnext.com.au` |
-| `REVOLUTIONNEXT_COOKIES_PATH` | (Optional) Path to cookies JSON (Chrome export) |
+| `REVNEXT_URL` | Base URL, e.g. `https://yourtenant.revolutionnext.com.au` |
+| `REVNEXT_USERNAME` | RevNext login User ID |
+| `REVNEXT_PASSWORD` | RevNext login Password |
+| `REVNEXT_SESSION_PATH` | (Optional) Session cookie file (default: `.revnext-session.json` in cwd) |
 
 **In code:**
 
@@ -62,12 +64,10 @@ run_tune_reports(config)
 from revnext import download_parts_by_bin_report, download_parts_price_list_report
 from pathlib import Path
 
-base_url = "https://yoursite.revolutionnext.com.au"
-cookies = Path("revnext-cookies.json")
+# Uses REVNEXT_URL, REVNEXT_USERNAME, REVNEXT_PASSWORD from env
 out = Path("reports")
-
-download_parts_by_bin_report(cookies_path=cookies, output_path=out / "Parts_By_Bin_Location.csv", base_url=base_url)
-download_parts_price_list_report(cookies_path=cookies, output_path=out / "Parts_Price_List.csv", base_url=base_url)
+download_parts_by_bin_report(output_path=out / "Parts_By_Bin_Location.csv")
+download_parts_price_list_report(output_path=out / "Parts_Price_List.csv")
 ```
 
 To run both in one go (or in parallel), see the examples in [packages/revnext/README.md](packages/revnext/README.md).
@@ -80,8 +80,7 @@ To run both in one go (or in parallel), see the examples in [packages/revnext/RE
 - Call `run_tune_reports(config)` to launch TUNE, log in, and run the built-in report sequence.
 
 **RevNext (revnext)**  
-- Export cookies for your RevNext domain (e.g. Chrome → export as JSON).  
-- Set `REVOLUTIONNEXT_URL` or pass `base_url` to the download functions.  
+- Set `REVNEXT_URL`, `REVNEXT_USERNAME`, and `REVNEXT_PASSWORD` in `.env` (or environment). Auto-login saves the session to disk; later runs reuse it until invalid.  
 - Use `download_parts_price_list_report` and `download_parts_by_bin_report`; see the package README for examples that download both (sequential or parallel).
 
 ## Project layout

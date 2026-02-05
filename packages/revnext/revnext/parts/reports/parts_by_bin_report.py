@@ -6,7 +6,7 @@ Uses auto-login with session persistence (no manual cookie export).
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 from revnext.common import get_or_create_session, run_report_flow
 from revnext.config import RevNextConfig
@@ -276,15 +276,19 @@ def download_parts_by_bin_report(
     last_sale_before: Optional[str] = None,
     last_receipt_before: Optional[str] = None,
     print_average_cost: Optional[bool] = None,
-) -> Path:
+    max_polls: int = 60,
+    poll_interval: float = 2,
+    return_data: bool = False,
+) -> Union[Path, bytes]:
     """
-    Run the Parts By Bin Location report and save CSV to output_path.
-    Returns the path where the file was saved.
+    Run the Parts By Bin Location report. By default saves CSV to output_path and returns the Path.
+    If return_data=True, returns the report content as bytes (no file saved); use e.g. pd.read_csv(io.BytesIO(data)).
 
     Args:
         config: RevNext config. Defaults to RevNextConfig.from_env().
-        output_path: Where to save the CSV. Defaults to current dir / Parts_By_Bin_Location.csv.
+        output_path: Where to save the CSV when return_data=False. Defaults to current dir / Parts_By_Bin_Location.csv.
         base_url: Override base URL (otherwise from config).
+        return_data: If True, do not save to file; return the CSV content as bytes.
         report_params: Optional params object; overridden by any keyword args below.
         company: Company code (e.g. "03"). Default "03".
         division: Division code (e.g. "1"). Default "1".
@@ -305,10 +309,14 @@ def download_parts_by_bin_report(
         last_sale_before: Last sale before date (ISO date-time or None).
         last_receipt_before: Last receipt before date (ISO date-time or None).
         print_average_cost: Include average cost in report.
+        return_data: If True, return CSV bytes instead of saving to a file.
     """
     config = config or RevNextConfig.from_env()
     base_url = base_url or config.base_url
-    output_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_By_Bin_Location.csv")
+    if return_data:
+        out_path = None
+    else:
+        out_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_By_Bin_Location.csv")
     params = report_params or PartsByBinLocationParams()
     kwargs = {
         "company": company,
@@ -345,8 +353,10 @@ def download_parts_by_bin_report(
         SERVICE_OBJECT,
         ACTIVITY_TAB_ID,
         get_body,
-        output_path,
         base_url,
+        output_path=out_path,
+        max_polls=max_polls,
+        poll_interval=poll_interval,
     )
 
 

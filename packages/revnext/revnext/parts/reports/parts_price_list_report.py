@@ -6,7 +6,7 @@ Uses auto-login with session persistence (no manual cookie export).
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import requests
 
@@ -261,15 +261,19 @@ def download_parts_price_list_report(
     include_gst_1: Optional[bool] = None,
     price_2: Optional[str] = None,
     include_gst_2: Optional[bool] = None,
-) -> Path:
+    max_polls: int = 60,
+    poll_interval: float = 2,
+    return_data: bool = False,
+) -> Union[Path, bytes]:
     """
-    Run the Parts Price List report and save CSV to output_path.
-    Returns the path where the file was saved.
+    Run the Parts Price List report. By default saves CSV to output_path and returns the Path.
+    If return_data=True, returns the report content as bytes (no file saved); use e.g. pd.read_csv(io.BytesIO(data)).
 
     Args:
         config: RevNext config. Defaults to RevNextConfig.from_env().
-        output_path: Where to save the CSV. Defaults to current dir / Parts_Price_List.csv.
+        output_path: Where to save the CSV when return_data=False. Defaults to current dir / Parts_Price_List.csv.
         base_url: Override base URL (otherwise from config).
+        return_data: If True, do not save to file; return the CSV content as bytes.
         report_params: Optional params object; overridden by any keyword args below.
         company: Company code (e.g. "03"). Default "03".
         division: Division code (e.g. "1"). Default "1".
@@ -283,10 +287,14 @@ def download_parts_price_list_report(
         include_gst_1: Include GST for price 1. Default True.
         price_2: Price 2 API code (e.g. "S" Stock, "R", "ST"). Default "S".
         include_gst_2: Include GST for price 2. Default True.
+        return_data: If True, return CSV bytes instead of saving to a file.
     """
     config = config or RevNextConfig.from_env()
     base_url = base_url or config.base_url
-    output_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_Price_List.csv")
+    if return_data:
+        out_path = None
+    else:
+        out_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_Price_List.csv")
     params = report_params or PartsPriceListParams()
     if any(
         x is not None
@@ -331,11 +339,13 @@ def download_parts_price_list_report(
         SERVICE_OBJECT,
         ACTIVITY_TAB_ID,
         get_body,
-        output_path,
         base_url,
+        output_path=out_path,
         post_submit_hook=_post_submit_closesubmit_factory(
             base_url, params.company, params.division, params.department
         ),
+        max_polls=max_polls,
+        poll_interval=poll_interval,
     )
 
 

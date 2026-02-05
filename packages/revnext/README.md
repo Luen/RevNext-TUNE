@@ -7,12 +7,11 @@ Download Revolution Next (*.revolutionnext.com.au) reports (Parts Price List, Pa
 
 ## Configuration (.env)
 
-Put your tenant, username, and password in a `.env` file (e.g. in the project root or cwd). Optional: use `python-dotenv` so `RevNextConfig.from_env()` loads it.
+Put your base URL, username, and password in a `.env` file (e.g. in the project root or cwd). Optional: use `python-dotenv` so `RevNextConfig.from_env()` loads it.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `REVNEXT_TENANT` | One of tenant/URL | Subdomain only (e.g. `mikecarney` → `https://mikecarney.revolutionnext.com.au`) |
-| `REVOLUTIONNEXT_URL` | One of tenant/URL | Full base URL (overrides tenant if both set) |
+| `REVNEXT_URL` | Yes | Full base URL (e.g. `https://yourtenant.revolutionnext.com.au`) |
 | `REVNEXT_USERNAME` | Yes | RevNext login User ID |
 | `REVNEXT_PASSWORD` | Yes | RevNext login Password |
 | `REVNEXT_SESSION_PATH` | No | Where to save/load session cookies (default: `.revnext-session.json` in cwd) |
@@ -20,7 +19,7 @@ Put your tenant, username, and password in a `.env` file (e.g. in the project ro
 Example `.env`:
 
 ```env
-REVNEXT_TENANT=yourtenant
+REVNEXT_URL=https://yourtenant.revolutionnext.com.au
 REVNEXT_USERNAME=your_user_id
 REVNEXT_PASSWORD=your_password
 ```
@@ -33,7 +32,7 @@ The first run logs in via the web form (CSRF + `j_spring_security_check`) and sa
 from pathlib import Path
 from revnext import download_parts_by_bin_report, download_parts_price_list_report
 
-# Config from env (.env or REVNEXT_* / REVOLUTIONNEXT_*)
+# Config from env (.env or REVNEXT_*)
 path1 = download_parts_by_bin_report(
     output_path=Path("C:/Reports/parts_by_bin.csv"),
 )
@@ -41,6 +40,25 @@ path2 = download_parts_price_list_report(
     output_path=Path("C:/Reports/parts_price_list.csv"),
 )
 ```
+
+### Return data in memory (e.g. for pandas)
+
+Use `return_data=True` to get the CSV content as bytes without saving a file. Load into pandas with `io.BytesIO`:
+
+```python
+import io
+import pandas as pd
+from revnext import download_parts_by_bin_report, download_parts_price_list_report
+
+# Get report as bytes, then load into a DataFrame
+csv_bytes = download_parts_by_bin_report(return_data=True)
+df = pd.read_csv(io.BytesIO(csv_bytes))
+
+# Or save to file yourself later
+# Path("reports/parts_by_bin.csv").write_bytes(csv_bytes)
+```
+
+When `return_data=True`, the function returns `bytes`; when `return_data=False` (default), it saves to `output_path` and returns the `Path`.
 
 ### Download one report with explicit config
 
