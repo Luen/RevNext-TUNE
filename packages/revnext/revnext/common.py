@@ -73,6 +73,24 @@ def get_response_url_from_load_data(load_data: dict) -> str | None:
     return None
 
 
+def _has_submit_errors(response_data: dict) -> tuple[bool, bool]:
+    """Return (has_error, has_warning_only). If has_error, raise after building message."""
+    error_table = response_data.get("errorTable") or []
+    has_error = any(e.get("type") == "ERROR" for e in error_table)
+    has_warning = any(e.get("type") == "WARNING" for e in error_table)
+    return has_error, has_warning and not has_error
+
+
+def _submit_errors_message(response_data: dict) -> str:
+    """Build a single message from errorTable entries."""
+    parts = []
+    for e in response_data.get("errorTable") or []:
+        msg = e.get("msg") or e.get("type", "")
+        if msg:
+            parts.append(msg)
+    return "; ".join(parts) if parts else "Unknown error"
+
+
 def run_report_flow(
     session: requests.Session,
     service_object: str,
@@ -86,15 +104,32 @@ def run_report_flow(
 ) -> Path:
     """
     Submit report task, poll until ready, loadData for download URL, then download CSV.
+    On submit: if response has ERROR, raises; if only WARNING and not success, retries once with stopOnWarning=False.
     Optionally call post_submit_hook(session) after submit (e.g. onChoose_btn_closesubmit).
     Returns the path where the file was saved.
     """
     submit_url = f"{base_url}/next/rest/si/static/submitActivityTask"
-    r = session.post(submit_url, json=get_submit_body())
+    body = get_submit_body()
+    r = session.post(submit_url, json=body)
     r.raise_for_status()
     submit_data = r.json()
+
     if not submit_data.get("submittedSuccess"):
-        raise RuntimeError("submitActivityTask did not report success.")
+        has_error, warning_only = _has_submit_errors(submit_data)
+        if has_error:
+            raise RuntimeError(f"submitActivityTask failed: {_submit_errors_message(submit_data)}")
+        if warning_only:
+            body = get_submit_body()
+            body["stopOnWarning"] = False
+            r = session.post(submit_url, json=body)
+            r.raise_for_status()
+            submit_data = r.json()
+            if not submit_data.get("submittedSuccess"):
+                raise RuntimeError(
+                    f"submitActivityTask failed after retry (warnings): {_submit_errors_message(submit_data)}"
+                )
+        else:
+            raise RuntimeError(f"submitActivityTask did not report success: {_submit_errors_message(submit_data)}")
 
     task_id = extract_task_id(submit_data)
     if not task_id:
@@ -104,11 +139,15 @@ def run_report_flow(
     if post_submit_hook:
         post_submit_hook(session)
 
+    coid = body.get("_userContext_vg_coid", "03")
+    divid = body.get("_userContext_vg_divid", "1")
+    dftdpt = body.get("_userContext_vg_dftdpt", "570")
+
     poll_url = f"{base_url}/next/rest/si/presenter/autoPollResponse"
     poll_body = {
-        "_userContext_vg_coid": "03",
-        "_userContext_vg_divid": "1",
-        "_userContext_vg_dftdpt": "570",
+        "_userContext_vg_coid": coid,
+        "_userContext_vg_divid": divid,
+        "_userContext_vg_dftdpt": dftdpt,
         "activityTabId": activity_tab_id,
         "ctrlProp": [
             {"name": "ttActivityTask.taskID", "prop": "SCREENVALUE", "value": task_id}
@@ -137,9 +176,9 @@ def run_report_flow(
         "activityType": "dummy",
         "fluidService": "dummy",
         "uiType": "ISC",
-        "_userContext_vg_coid": "03",
-        "_userContext_vg_divid": "1",
-        "_userContext_vg_dftdpt": "570",
+        "_userContext_vg_coid": coid,
+        "_userContext_vg_divid": divid,
+        "_userContext_vg_dftdpt": dftdpt,
         "activityTabId": activity_tab_id,
         "loadMode": "EDIT",
         "loadRowid": "dummy",

@@ -3,29 +3,52 @@ Download Parts Price List CSV report from Revolution Next (*.revolutionnext.com.
 Uses auto-login with session persistence (no manual cookie export).
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import requests
 
 from revnext.common import get_or_create_session, run_report_flow
-from revnext.config import RevNextConfig, get_revnext_base_url_from_env
+from revnext.config import RevNextConfig
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsPriceListPR"
 ACTIVITY_TAB_ID = "N78b54de4_7cdc_43e0_9e42_71a49bec44f2"
 
 
-def _build_submit_body() -> dict:
-    """Build the submitActivityTask request body. Use today's date for the trigger."""
+@dataclass
+class PartsPriceListParams:
+    """Parameters for the Parts Price List report. All default to current behavior if omitted."""
+
+    company: str = "03"
+    division: str = "1"
+    department: str = "130"
+    # Stock Parts ("stock") or Supplier Parts ("supplier") -> prttyp "s" or "p"
+    part_type: Literal["stock", "supplier"] = "stock"
+    from_franchise: str = ""
+    to_franchise: str = ""
+    from_bin: str = ""
+    to_bin: str = ""
+    # Price 1: API code e.g. "L" (List), "I", "TG"
+    price_1: str = "L"
+    include_gst_1: bool = True
+    # Price 2: API code e.g. "S" (Stock), "R", "ST"
+    price_2: str = "S"
+    include_gst_2: bool = True
+
+
+def _build_submit_body(params: PartsPriceListParams) -> dict:
+    """Build the submitActivityTask request body from params. Use today's date for the trigger."""
     tz = "+10:00"
     now = datetime.now()
     start_date = now.strftime("%Y-%m-%d")
     start_time = f"{start_date}T{now.strftime('%H:%M')}:00.000{tz}"
+    prttyp = "s" if params.part_type == "stock" else "p"
     return {
-        "_userContext_vg_coid": "03",
-        "_userContext_vg_divid": "1",
-        "_userContext_vg_dftdpt": "570",
+        "_userContext_vg_coid": params.company,
+        "_userContext_vg_divid": params.division,
+        "_userContext_vg_dftdpt": params.department,
         "activityTabId": ACTIVITY_TAB_ID,
         "dataSets": [
             {
@@ -104,8 +127,8 @@ def _build_submit_body() -> dict:
                                 "prods:id": "tt_paramsFldId1",
                                 "prods:rowState": "modified",
                                 "fldid": 1,
-                                "coid": "03",
-                                "divid": "1",
+                                "coid": params.company,
+                                "divid": params.division,
                                 "activityid": "IM.RPT.PartsPriceListPR",
                                 "taskid": "",
                                 "tasksts": None,
@@ -115,7 +138,7 @@ def _build_submit_body() -> dict:
                                 "csvout": True,
                                 "emailopt": "n",
                                 "emailme": False,
-                                "useremail": "lwarneke@mikecarneytoyota.com.au",
+                                "useremail": "",
                                 "emailprinter": False,
                                 "prtid": "",
                                 "ddpflg": False,
@@ -130,16 +153,16 @@ def _build_submit_body() -> dict:
                                 "email_text": "",
                                 "email_signature": "",
                                 "email_sig_type": "D",
-                                "prttyp": "s",
-                                "dptid": "570",
-                                "frnid": "",
-                                "frnidto": "",
-                                "binid": "",
-                                "binidto": "",
-                                "prctyp1": "L",
-                                "prctyp2": "S",
-                                "incgst1": True,
-                                "incgst2": True,
+                                "prttyp": prttyp,
+                                "dptid": params.department,
+                                "frnid": params.from_franchise,
+                                "frnidto": params.to_franchise,
+                                "binid": params.from_bin,
+                                "binidto": params.to_bin,
+                                "prctyp1": params.price_1,
+                                "prctyp2": params.price_2,
+                                "incgst1": params.include_gst_1,
+                                "incgst2": params.include_gst_2,
                                 "exportexcel": False,
                                 "tasktype": "",
                             }
@@ -150,8 +173,8 @@ def _build_submit_body() -> dict:
                                     "prods:id": "tt_paramsFldId1",
                                     "prods:rowState": "modified",
                                     "fldid": 1,
-                                    "coid": "03",
-                                    "divid": "1",
+                                    "coid": params.company,
+                                    "divid": params.division,
                                     "activityid": "",
                                     "taskid": "",
                                     "tasksts": None,
@@ -176,8 +199,8 @@ def _build_submit_body() -> dict:
                                     "email_text": "",
                                     "email_signature": "",
                                     "email_sig_type": "",
-                                    "prttyp": "s",
-                                    "dptid": "130",
+                                    "prttyp": prttyp,
+                                    "dptid": params.department,
                                     "frnid": "",
                                     "frnidto": "",
                                     "binid": "",
@@ -201,14 +224,14 @@ def _build_submit_body() -> dict:
     }
 
 
-def _post_submit_closesubmit_factory(base_url: str):
+def _post_submit_closesubmit_factory(base_url: str, company: str, division: str, department: str):
     """Return a hook that calls onChoose_btn_closesubmit (required for Parts Price List flow)."""
     def _post_submit_closesubmit(session: requests.Session) -> None:
         url = f"{base_url}/next/rest/si/presenter/onChoose_btn_closesubmit"
         body = {
-            "_userContext_vg_coid": "03",
-            "_userContext_vg_divid": "1",
-            "_userContext_vg_dftdpt": "570",
+            "_userContext_vg_coid": company,
+            "_userContext_vg_divid": division,
+            "_userContext_vg_dftdpt": department,
             "activityTabId": ACTIVITY_TAB_ID,
             "ctrlProp": [
                 {"name": "tt_params.submitopt", "prop": "SCREENVALUE", "value": "p"}
@@ -224,28 +247,95 @@ def download_parts_price_list_report(
     config: Optional[RevNextConfig] = None,
     output_path: Optional[Path | str] = None,
     base_url: Optional[str] = None,
+    report_params: Optional[PartsPriceListParams] = None,
+    *,
+    company: Optional[str] = None,
+    division: Optional[str] = None,
+    department: Optional[str] = None,
+    part_type: Optional[Literal["stock", "supplier"]] = None,
+    from_franchise: Optional[str] = None,
+    to_franchise: Optional[str] = None,
+    from_bin: Optional[str] = None,
+    to_bin: Optional[str] = None,
+    price_1: Optional[str] = None,
+    include_gst_1: Optional[bool] = None,
+    price_2: Optional[str] = None,
+    include_gst_2: Optional[bool] = None,
 ) -> Path:
     """
     Run the Parts Price List report and save CSV to output_path.
     Returns the path where the file was saved.
 
     Args:
-        config: RevNext config (tenant/URL, username, password, session path). Defaults to RevNextConfig.from_env().
+        config: RevNext config. Defaults to RevNextConfig.from_env().
         output_path: Where to save the CSV. Defaults to current dir / Parts_Price_List.csv.
         base_url: Override base URL (otherwise from config).
+        report_params: Optional params object; overridden by any keyword args below.
+        company: Company code (e.g. "03"). Default "03".
+        division: Division code (e.g. "1"). Default "1".
+        department: Department code (e.g. "130"). Default "130".
+        part_type: "stock" or "supplier". Default "stock".
+        from_franchise: From franchise code (e.g. "OL"). Use codes, not display names.
+        to_franchise: To franchise code.
+        from_bin: From bin code.
+        to_bin: To bin code.
+        price_1: Price 1 API code (e.g. "L" List, "I", "TG"). Default "L".
+        include_gst_1: Include GST for price 1. Default True.
+        price_2: Price 2 API code (e.g. "S" Stock, "R", "ST"). Default "S".
+        include_gst_2: Include GST for price 2. Default True.
     """
     config = config or RevNextConfig.from_env()
     base_url = base_url or config.base_url
     output_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_Price_List.csv")
+    params = report_params or PartsPriceListParams()
+    if any(
+        x is not None
+        for x in (
+            company,
+            division,
+            department,
+            part_type,
+            from_franchise,
+            to_franchise,
+            from_bin,
+            to_bin,
+            price_1,
+            include_gst_1,
+            price_2,
+            include_gst_2,
+        )
+    ):
+        params = PartsPriceListParams(
+            company=company if company is not None else params.company,
+            division=division if division is not None else params.division,
+            department=department if department is not None else params.department,
+            part_type=part_type if part_type is not None else params.part_type,
+            from_franchise=from_franchise if from_franchise is not None else params.from_franchise,
+            to_franchise=to_franchise if to_franchise is not None else params.to_franchise,
+            from_bin=from_bin if from_bin is not None else params.from_bin,
+            to_bin=to_bin if to_bin is not None else params.to_bin,
+            price_1=price_1 if price_1 is not None else params.price_1,
+            include_gst_1=include_gst_1 if include_gst_1 is not None else params.include_gst_1,
+            price_2=price_2 if price_2 is not None else params.price_2,
+            include_gst_2=include_gst_2 if include_gst_2 is not None else params.include_gst_2,
+        )
+    if not (params.price_1 or "").strip() and not (params.price_2 or "").strip():
+        raise ValueError(
+            "You must select at least one price type to print a price listing. "
+            "Set price_1 and/or price_2 (e.g. price_1='L', price_2='S', or price_1='F', price_2='O')."
+        )
     session = get_or_create_session(config, SERVICE_OBJECT)
+    get_body = lambda: _build_submit_body(params)
     return run_report_flow(
         session,
         SERVICE_OBJECT,
         ACTIVITY_TAB_ID,
-        _build_submit_body,
+        get_body,
         output_path,
         base_url,
-        post_submit_hook=_post_submit_closesubmit_factory(base_url),
+        post_submit_hook=_post_submit_closesubmit_factory(
+            base_url, params.company, params.division, params.department
+        ),
     )
 
 

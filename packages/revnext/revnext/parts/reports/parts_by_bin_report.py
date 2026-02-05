@@ -3,27 +3,58 @@ Download Parts By Bin Location CSV report from Revolution Next (*.revolutionnext
 Uses auto-login with session persistence (no manual cookie export).
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from revnext.common import get_or_create_session, run_report_flow
-from revnext.config import RevNextConfig, get_revnext_base_url_from_env
+from revnext.config import RevNextConfig
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsByBinLocationPR"
 ACTIVITY_TAB_ID = "Nce9eac79_528b_4fc4_a294_b055a6dde16b"
 
 
-def _build_submit_body() -> dict:
-    """Build the submitActivityTask request body. Use today's date for the trigger."""
+@dataclass
+class PartsByBinLocationParams:
+    """Parameters for the Parts By Bin Location report. All default to current behavior if omitted."""
+
+    company: str = "03"
+    division: str = "1"
+    department: str = "130"
+    from_department: str = "130"
+    to_department: str = "130"
+    from_franchise: str = ""
+    to_franchise: str = ""
+    from_bin: str = ""
+    to_bin: str = ""
+    from_movement_code: str = ""
+    to_movement_code: str = ""
+    # "Physical Stock" -> stktyp "P", "Available Stock" -> "A"
+    show_stock_as: Literal["Physical Stock", "Available Stock"] = "Available Stock"
+    print_when_stock_not_zero: bool = False
+    print_part_when_stock_zero: bool = False
+    print_part_when_stock_on_order_zero: bool = False
+    no_primary_bin_location: bool = False
+    no_alternate_bin_location: bool = False
+    no_primary_but_has_alternate_bin: bool = False
+    has_both_primary_and_alternate_bin: bool = False
+    last_sale_before: Optional[str] = None  # ISO date-time or None
+    last_receipt_before: Optional[str] = None
+    print_average_cost: bool = False
+
+
+def _build_submit_body(params: PartsByBinLocationParams) -> dict:
+    """Build the submitActivityTask request body from params."""
     tz = "+10:00"
     now = datetime.now()
     start_date = now.strftime("%Y-%m-%d")
     start_time = f"{start_date}T{now.strftime('%H:%M')}:00.000{tz}"
+    stktyp = "P" if params.show_stock_as == "Physical Stock" else "A"
     return {
-        "_userContext_vg_coid": "03",
-        "_userContext_vg_divid": "1",
-        "_userContext_vg_dftdpt": "570",
+        "_userContext_vg_coid": params.company,
+        "_userContext_vg_divid": params.division,
+        "_userContext_vg_dftdpt": params.department,
         "activityTabId": ACTIVITY_TAB_ID,
         "dataSets": [
             {
@@ -102,8 +133,8 @@ def _build_submit_body() -> dict:
                                 "prods:id": "tt_paramsFldId1",
                                 "prods:rowState": "modified",
                                 "fldid": 1,
-                                "coid": "03",
-                                "divid": "1",
+                                "coid": params.company,
+                                "divid": params.division,
                                 "activityid": "IM.RPT.PartsByBinLocationPR",
                                 "taskid": "",
                                 "tasksts": None,
@@ -113,7 +144,7 @@ def _build_submit_body() -> dict:
                                 "csvout": True,
                                 "emailopt": "n",
                                 "emailme": False,
-                                "useremail": "lwarneke@mikecarneytoyota.com.au",
+                                "useremail": "",
                                 "emailprinter": False,
                                 "prtid": "",
                                 "ddpflg": False,
@@ -128,25 +159,25 @@ def _build_submit_body() -> dict:
                                 "email_text": "",
                                 "email_signature": "",
                                 "email_sig_type": "D",
-                                "frmdptid": "570",
-                                "todptid": "570",
-                                "frmfrnid": "",
-                                "tofrnid": "",
-                                "frmbinid": "",
-                                "tobinid": "",
-                                "frmmovecode": "",
-                                "tomovecode": "",
-                                "stktyp": "A",
-                                "prntnotzero": False,
-                                "prntzero": False,
-                                "prntstkzero": False,
-                                "noprimarybin": False,
-                                "noalternatebin": False,
-                                "hasalternateonly": False,
-                                "bothprimaryalternate": False,
-                                "lastsaledate": None,
-                                "lastreceiptdate": None,
-                                "prntavgcost": False,
+                                "frmdptid": params.from_department,
+                                "todptid": params.to_department,
+                                "frmfrnid": params.from_franchise,
+                                "tofrnid": params.to_franchise,
+                                "frmbinid": params.from_bin,
+                                "tobinid": params.to_bin,
+                                "frmmovecode": params.from_movement_code,
+                                "tomovecode": params.to_movement_code,
+                                "stktyp": stktyp,
+                                "prntnotzero": params.print_when_stock_not_zero,
+                                "prntzero": params.print_part_when_stock_zero,
+                                "prntstkzero": params.print_part_when_stock_on_order_zero,
+                                "noprimarybin": params.no_primary_bin_location,
+                                "noalternatebin": params.no_alternate_bin_location,
+                                "hasalternateonly": params.no_primary_but_has_alternate_bin,
+                                "bothprimaryalternate": params.has_both_primary_and_alternate_bin,
+                                "lastsaledate": params.last_sale_before,
+                                "lastreceiptdate": params.last_receipt_before,
+                                "prntavgcost": params.print_average_cost,
                                 "rptformat": "N",
                                 "tasktype": "",
                             }
@@ -157,8 +188,8 @@ def _build_submit_body() -> dict:
                                     "prods:id": "tt_paramsFldId1",
                                     "prods:rowState": "modified",
                                     "fldid": 1,
-                                    "coid": "03",
-                                    "divid": "1",
+                                    "coid": params.company,
+                                    "divid": params.division,
                                     "activityid": "",
                                     "taskid": "",
                                     "tasksts": None,
@@ -183,15 +214,15 @@ def _build_submit_body() -> dict:
                                     "email_text": "",
                                     "email_signature": "",
                                     "email_sig_type": "",
-                                    "frmdptid": "130",
-                                    "todptid": "130",
+                                    "frmdptid": params.from_department,
+                                    "todptid": params.to_department,
                                     "frmfrnid": "",
                                     "tofrnid": "",
                                     "frmbinid": "",
                                     "tobinid": "",
                                     "frmmovecode": "",
                                     "tomovecode": "",
-                                    "stktyp": "P",
+                                    "stktyp": stktyp,
                                     "prntnotzero": False,
                                     "prntzero": False,
                                     "prntstkzero": False,
@@ -221,25 +252,99 @@ def download_parts_by_bin_report(
     config: Optional[RevNextConfig] = None,
     output_path: Optional[Path | str] = None,
     base_url: Optional[str] = None,
+    report_params: Optional[PartsByBinLocationParams] = None,
+    *,
+    company: Optional[str] = None,
+    division: Optional[str] = None,
+    department: Optional[str] = None,
+    from_department: Optional[str] = None,
+    to_department: Optional[str] = None,
+    from_franchise: Optional[str] = None,
+    to_franchise: Optional[str] = None,
+    from_bin: Optional[str] = None,
+    to_bin: Optional[str] = None,
+    from_movement_code: Optional[str] = None,
+    to_movement_code: Optional[str] = None,
+    show_stock_as: Optional[Literal["Physical Stock", "Available Stock"]] = None,
+    print_when_stock_not_zero: Optional[bool] = None,
+    print_part_when_stock_zero: Optional[bool] = None,
+    print_part_when_stock_on_order_zero: Optional[bool] = None,
+    no_primary_bin_location: Optional[bool] = None,
+    no_alternate_bin_location: Optional[bool] = None,
+    no_primary_but_has_alternate_bin: Optional[bool] = None,
+    has_both_primary_and_alternate_bin: Optional[bool] = None,
+    last_sale_before: Optional[str] = None,
+    last_receipt_before: Optional[str] = None,
+    print_average_cost: Optional[bool] = None,
 ) -> Path:
     """
     Run the Parts By Bin Location report and save CSV to output_path.
     Returns the path where the file was saved.
 
     Args:
-        config: RevNext config (tenant/URL, username, password, session path). Defaults to RevNextConfig.from_env().
+        config: RevNext config. Defaults to RevNextConfig.from_env().
         output_path: Where to save the CSV. Defaults to current dir / Parts_By_Bin_Location.csv.
         base_url: Override base URL (otherwise from config).
+        report_params: Optional params object; overridden by any keyword args below.
+        company: Company code (e.g. "03"). Default "03".
+        division: Division code (e.g. "1"). Default "1".
+        department: Department code for context (e.g. "130"). Default "130".
+        from_department: From department code. Default "130".
+        to_department: To department code. Default "130".
+        from_franchise / to_franchise: Franchise codes (use codes, not display names).
+        from_bin / to_bin: Bin codes.
+        from_movement_code / to_movement_code: Movement codes (must be valid for department/franchise).
+        show_stock_as: "Physical Stock" or "Available Stock". Default "Available Stock".
+        print_when_stock_not_zero: Include parts when stock not zero.
+        print_part_when_stock_zero: Include parts when stock zero.
+        print_part_when_stock_on_order_zero: Include parts when stock on order zero.
+        no_primary_bin_location: Only parts with no primary bin.
+        no_alternate_bin_location: Only parts with no alternate bin.
+        no_primary_but_has_alternate_bin: Only parts with no primary but have alternate.
+        has_both_primary_and_alternate_bin: Only parts with both primary and alternate.
+        last_sale_before: Last sale before date (ISO date-time or None).
+        last_receipt_before: Last receipt before date (ISO date-time or None).
+        print_average_cost: Include average cost in report.
     """
     config = config or RevNextConfig.from_env()
     base_url = base_url or config.base_url
     output_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_By_Bin_Location.csv")
+    params = report_params or PartsByBinLocationParams()
+    kwargs = {
+        "company": company,
+        "division": division,
+        "department": department,
+        "from_department": from_department,
+        "to_department": to_department,
+        "from_franchise": from_franchise,
+        "to_franchise": to_franchise,
+        "from_bin": from_bin,
+        "to_bin": to_bin,
+        "from_movement_code": from_movement_code,
+        "to_movement_code": to_movement_code,
+        "show_stock_as": show_stock_as,
+        "print_when_stock_not_zero": print_when_stock_not_zero,
+        "print_part_when_stock_zero": print_part_when_stock_zero,
+        "print_part_when_stock_on_order_zero": print_part_when_stock_on_order_zero,
+        "no_primary_bin_location": no_primary_bin_location,
+        "no_alternate_bin_location": no_alternate_bin_location,
+        "no_primary_but_has_alternate_bin": no_primary_but_has_alternate_bin,
+        "has_both_primary_and_alternate_bin": has_both_primary_and_alternate_bin,
+        "last_sale_before": last_sale_before,
+        "last_receipt_before": last_receipt_before,
+        "print_average_cost": print_average_cost,
+    }
+    if any(v is not None for v in kwargs.values()):
+        params = PartsByBinLocationParams(
+            **{k: v if v is not None else getattr(params, k) for k, v in kwargs.items()}
+        )
     session = get_or_create_session(config, SERVICE_OBJECT)
+    get_body = lambda: _build_submit_body(params)
     return run_report_flow(
         session,
         SERVICE_OBJECT,
         ACTIVITY_TAB_ID,
-        _build_submit_body,
+        get_body,
         output_path,
         base_url,
     )
