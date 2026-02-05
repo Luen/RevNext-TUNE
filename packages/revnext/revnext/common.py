@@ -1,15 +1,15 @@
 """
 Shared utilities for Revolution Next (*.revolutionnext.com.au) report downloads.
-Cookie loading, session creation, and generic submit → poll → loadData → download flow.
+Session creation (auto-login with persistence) and generic submit → poll → loadData → download flow.
 """
 
-import json
 import time
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
 
 import requests
+
+from revnext.config import RevNextConfig
 
 
 def _common_headers(base_url: str) -> dict:
@@ -30,45 +30,13 @@ def _common_headers(base_url: str) -> dict:
     }
 
 
-def load_cookies_for_domain(cookies_path: Path, domain: str) -> list[tuple[str, str]]:
-    """Load cookies from Chrome-export JSON and return (name, value) pairs for the domain."""
-    with open(cookies_path, encoding="utf-8") as f:
-        raw = json.load(f)
-    pairs = []
-    for c in raw:
-        d = c.get("domain", "")
-        if not d:
-            continue
-        if domain == d or domain.endswith(d.lstrip(".")):
-            pairs.append((c["name"], c["value"]))
-    return pairs
-
-
-def cookie_header(pairs: list[tuple[str, str]]) -> str:
-    """Build Cookie header value from (name, value) pairs."""
-    return "; ".join(f"{name}={value}" for name, value in pairs)
-
-
-def create_session(
-    cookies_path: Path,
-    service_object: str,
-    base_url: str,
-) -> requests.Session:
-    """Create a requests Session with cookies and common headers for the given base URL and service object."""
-    parsed = urlparse(base_url)
-    domain = parsed.netloc or parsed.path
-    if not domain:
-        raise ValueError(f"Invalid base_url: {base_url}")
-    cookie_pairs = load_cookies_for_domain(cookies_path, domain)
-    if not cookie_pairs:
-        raise ValueError(
-            f"No cookies found for {domain}. Export cookies for this domain (e.g. revnext-cookies.json)."
-        )
-    session = requests.Session()
-    session.headers.update(_common_headers(base_url))
-    session.headers["cookie"] = cookie_header(cookie_pairs)
-    session.headers["x-service-object"] = service_object
-    return session
+def get_or_create_session(config: RevNextConfig, service_object: str) -> requests.Session:
+    """
+    Return an authenticated session: load from config.session_path if present and valid,
+    otherwise log in with config username/password, save session to disk, and return it.
+    """
+    from revnext.session import get_or_create_session as _get_or_create_session
+    return _get_or_create_session(config, service_object)
 
 
 def extract_task_id(submit_response: dict) -> str | None:

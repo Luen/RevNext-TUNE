@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "revnext"
-version = "0.1.2"
+version = "0.1.3"
 description = "Revolution Next (*.revolutionnext.com.au) report downloads via REST API"
 readme = "README.md"
 license = "MIT"

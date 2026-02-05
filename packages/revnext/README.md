@@ -1,108 +1,123 @@
 # revnext
 
-Download Revolution Next (*.revolutionnext.com.au) reports (Parts Price List, Parts by Bin Location) via REST API using cookies/session.
+Download Revolution Next (*.revolutionnext.com.au) reports (Parts Price List, Parts by Bin Location) via REST API. Uses **auto-login** and saves the session to disk so the next run reuses it; if the session is invalid, it logs in again automatically.
 
-Install: `pip install revnext`  
-Or from repo root: `pip install -e ./packages/revnext`
+- **Install:** `pip install revnext`  
+- **Editable (from repo root):** `pip install -e ./packages/revnext`
+
+## Configuration (.env)
+
+Put your tenant, username, and password in a `.env` file (e.g. in the project root or cwd). Optional: use `python-dotenv` so `RevNextConfig.from_env()` loads it.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `REVNEXT_TENANT` | One of tenant/URL | Subdomain only (e.g. `mikecarney` → `https://mikecarney.revolutionnext.com.au`) |
+| `REVOLUTIONNEXT_URL` | One of tenant/URL | Full base URL (overrides tenant if both set) |
+| `REVNEXT_USERNAME` | Yes | RevNext login User ID |
+| `REVNEXT_PASSWORD` | Yes | RevNext login Password |
+| `REVNEXT_SESSION_PATH` | No | Where to save/load session cookies (default: `.revnext-session.json` in cwd) |
+
+Example `.env`:
+
+```env
+REVNEXT_TENANT=yourtenant
+REVNEXT_USERNAME=your_user_id
+REVNEXT_PASSWORD=your_password
+```
+
+The first run logs in via the web form (CSRF + `j_spring_security_check`) and saves the session to `REVNEXT_SESSION_PATH` or `.revnext-session.json`. Later runs load that file, check that the session is still valid, and only re-login if it has expired.
 
 ## Quick start
-
-You need a cookies file (Chrome export for your RevNext domain). Then call the download functions with your instance URL and download location.
-
-### Download one report with a specific file path
 
 ```python
 from pathlib import Path
 from revnext import download_parts_by_bin_report, download_parts_price_list_report
 
-base_url = "https://yoursite.revolutionnext.com.au"
-cookies_path = Path("revnext-cookies.json")
-
-# Parts by Bin Location
+# Config from env (.env or REVNEXT_* / REVOLUTIONNEXT_*)
 path1 = download_parts_by_bin_report(
-    base_url=base_url,
     output_path=Path("C:/Reports/parts_by_bin.csv"),
-    cookies_path=cookies_path,
 )
-
-# Parts Price List
 path2 = download_parts_price_list_report(
-    base_url=base_url,
     output_path=Path("C:/Reports/parts_price_list.csv"),
-    cookies_path=cookies_path,
+)
+```
+
+### Download one report with explicit config
+
+```python
+from pathlib import Path
+from revnext import RevNextConfig, download_parts_by_bin_report, download_parts_price_list_report
+
+config = RevNextConfig.from_env()  # or RevNextConfig( base_url="...", username="...", password="...", session_path=... )
+
+path1 = download_parts_by_bin_report(
+    config=config,
+    output_path=Path("C:/Reports/parts_by_bin.csv"),
+)
+path2 = download_parts_price_list_report(
+    config=config,
+    output_path=Path("C:/Reports/parts_price_list.csv"),
 )
 ```
 
 ### Example: download both reports (implement in your project)
 
-Copy this into your project to run both reports in sequence:
-
 ```python
 from pathlib import Path
 from typing import Optional
 
-from revnext import download_parts_by_bin_report, download_parts_price_list_report
+from revnext import RevNextConfig, download_parts_by_bin_report, download_parts_price_list_report
 
 
 def download_all_reports(
-    cookies_path: Optional[Path | str] = None,
+    config: Optional[RevNextConfig] = None,
     output_dir: Optional[Path | str] = None,
-    base_url: Optional[str] = None,
 ) -> list[Path]:
     """Run both reports and save CSVs. Returns the list of paths where files were saved."""
+    config = config or RevNextConfig.from_env()
     output_dir = Path(output_dir) if output_dir is not None else Path.cwd()
     path1 = download_parts_by_bin_report(
-        cookies_path=cookies_path,
+        config=config,
         output_path=output_dir / "Parts_By_Bin_Location.csv",
-        base_url=base_url,
     )
     path2 = download_parts_price_list_report(
-        cookies_path=cookies_path,
+        config=config,
         output_path=output_dir / "Parts_Price_List.csv",
-        base_url=base_url,
     )
     return [path1, path2]
 ```
 
-### Example: download both reports in parallel (implement in your project)
-
-Copy this into your project to run both reports concurrently (Promise.all-style):
+### Example: download both reports in parallel
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from revnext import download_parts_by_bin_report, download_parts_price_list_report
+from revnext import RevNextConfig, download_parts_by_bin_report, download_parts_price_list_report
 
 
 def download_all_reports_parallel(
-    cookies_path: Optional[Path | str] = None,
+    config: Optional[RevNextConfig] = None,
     output_dir: Optional[Path | str] = None,
-    base_url: Optional[str] = None,
 ) -> list[Path]:
     """Run both reports in parallel. Returns the list of paths where files were saved."""
+    config = config or RevNextConfig.from_env()
     output_dir = Path(output_dir) if output_dir is not None else Path.cwd()
     path1 = output_dir / "Parts_By_Bin_Location.csv"
     path2 = output_dir / "Parts_Price_List.csv"
     with ThreadPoolExecutor(max_workers=2) as executor:
         f1 = executor.submit(
             download_parts_by_bin_report,
-            cookies_path=cookies_path,
+            config=config,
             output_path=path1,
-            base_url=base_url,
         )
         f2 = executor.submit(
             download_parts_price_list_report,
-            cookies_path=cookies_path,
+            config=config,
             output_path=path2,
-            base_url=base_url,
         )
         return [f1.result(), f2.result()]
 ```
 
-### Using environment variables
-
-Set `REVOLUTIONNEXT_URL` and optionally `REVOLUTIONNEXT_COOKIES_PATH`; then you can omit `base_url` and `cookies_path` in code.
-
-See the [main repo README](https://github.com/Luen/RevNext-TUNE) for full configuration options.
+See the [main repo README](https://github.com/Luen/RevNext-TUNE) for the monorepo layout.

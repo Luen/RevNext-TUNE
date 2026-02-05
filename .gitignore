@@ -17,6 +17,10 @@ eggs/
 lib/
 lib64/
 parts/
+# RevNext package: Parts reports (do not ignore)
+!packages/revnext/revnext/parts/
+!packages/revnext/revnext/parts/**
+packages/revnext/revnext/parts/**/__pycache__/
 sdist/
 var/
 wheels/
@@ -181,6 +185,8 @@ cython_debug/
 .cursorindexingignore
 
 
-# Revolution Next
+# Revolution Next (session cookie file – do not commit)
+.revnext-session.json
 revnext/*.json
-.vscode/settings.json
+.vscode
+*.csv

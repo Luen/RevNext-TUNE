@@ -16,46 +16,81 @@ def _load_dotenv_if_available() -> None:
         pass
 
 
+def _default_session_path() -> Path:
+    """Default path for persisted session cookies (under cwd)."""
+    return Path.cwd() / ".revnext-session.json"
+
+
 @dataclass(frozen=True)
 class RevNextConfig:
     """Configuration for Revolution Next (*.revolutionnext.com.au) API / report downloads."""
 
     base_url: str
-    cookies_path: Optional[Path] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str
+    password: str
+    session_path: Optional[Path] = None
 
     @classmethod
     def from_env(
         cls,
         *,
         base_url: Optional[str] = None,
-        cookies_path: Optional[Path] = None,
+        tenant: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        session_path: Optional[Path] = None,
         load_dotenv: bool = True,
     ) -> "RevNextConfig":
-        """Build config from environment variables. Override any field by passing it explicitly."""
+        """Build config from environment variables. Override any field by passing it explicitly.
+
+        Env: REVNEXT_TENANT (e.g. mikecarney) or REVOLUTIONNEXT_URL (full URL),
+        REVNEXT_USERNAME, REVNEXT_PASSWORD, optional REVNEXT_SESSION_PATH.
+        """
         if load_dotenv:
             _load_dotenv_if_available()
-        url = base_url or os.getenv("REVOLUTIONNEXT_URL") or "https://mikecarney.revolutionnext.com.au"
+        url = base_url
+        if not url and tenant is None:
+            tenant = os.getenv("REVNEXT_TENANT")
+        if not url:
+            url = os.getenv("REVOLUTIONNEXT_URL")
+        if not url and tenant:
+            url = f"https://{tenant.strip().rstrip('/')}.revolutionnext.com.au"
+        if not url:
+            url = "https://mikecarney.revolutionnext.com.au"
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
-        cp = cookies_path
-        if cp is None and os.getenv("REVOLUTIONNEXT_COOKIES_PATH"):
-            cp = Path(os.getenv("REVOLUTIONNEXT_COOKIES_PATH"))
+        uname = username or os.getenv("REVNEXT_USERNAME") or os.getenv("REVOLUTIONNEXT_USERNAME") or ""
+        pwd = password or os.getenv("REVNEXT_PASSWORD") or os.getenv("REVOLUTIONNEXT_PASSWORD") or ""
+        sp = session_path
+        if sp is None and os.getenv("REVNEXT_SESSION_PATH"):
+            sp = Path(os.getenv("REVNEXT_SESSION_PATH"))
+        if sp is None:
+            sp = _default_session_path()
         return cls(
             base_url=url,
-            cookies_path=cp,
-            username=username or os.getenv("REVOLUTIONNEXT_USERNAME"),
-            password=password or os.getenv("REVOLUTIONNEXT_PASSWORD"),
+            username=uname,
+            password=pwd,
+            session_path=sp,
         )
+
+    def validate(self) -> None:
+        """Raise ValueError if required fields are missing."""
+        if not self.username or not self.password:
+            raise ValueError(
+                "REVNEXT_USERNAME and REVNEXT_PASSWORD must be set "
+                "(via RevNextConfig.from_env(), environment variables, or constructor)."
+            )
 
 
 def get_revnext_base_url_from_env() -> str:
-    """Return RevNext base URL from environment (REVOLUTIONNEXT_URL)."""
+    """Return RevNext base URL from environment (REVNEXT_TENANT or REVOLUTIONNEXT_URL)."""
     _load_dotenv_if_available()
-    url = os.getenv("REVOLUTIONNEXT_URL") or "https://mikecarney.revolutionnext.com.au"
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    return url
+    tenant = os.getenv("REVNEXT_TENANT")
+    url = os.getenv("REVOLUTIONNEXT_URL")
+    if url:
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        return url
+    if tenant:
+        return f"https://{tenant.strip().rstrip('/')}.revolutionnext.com.au"
+    return "https://mikecarney.revolutionnext.com.au"

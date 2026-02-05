@@ -33,6 +33,11 @@ Do not add a root-level installable package that depends on both. Do not add a `
 - **Root README** describes the monorepo and points to the two packages; **package READMEs** (e.g. `packages/revnext/README.md`, `packages/tune_dms/README.md`) are the usage and API docs for that package.
 - **PyPI display:** The long description shown on the PyPI package page is typically rendered from the package’s README (via `readme` in `pyproject.toml`). Keep package READMEs clear, up-to-date, and suitable for both GitHub and PyPI so users downloading the package see accurate install/usage instructions.
 
+## Renaming and moving files
+
+- **Use `git mv`** when renaming or moving files (e.g. `git mv old_path new_path`). This preserves history so `git log --follow` and blame work correctly.
+- Do not move files by copying content to a new path and deleting the old one; that breaks rename detection and loses history.
+
 ## Editable installs
 
 From repo root:
