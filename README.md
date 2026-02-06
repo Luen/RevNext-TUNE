@@ -2,8 +2,8 @@
 
 Mono repo for **TUNE DMS** (desktop GUI automation) and **REVOLUTIONnext SmartCenter** (`*.revolutionnext.com.au`).
 
-- **tune-dms** – TUNE DMS: log in via the GUI and run reports (Parts Price List, Parts by Bin Location) using keyboard/screen automation. Reference images are in `packages/tune_dms/tune_dms/images/`.
-- **revnext** – Revolution Next: download the same reports via HTTP (cookies/session). Use this when you only need RevNext or want to avoid the GUI.
+- **[tune-dms](https://pypi.org/project/tune-dms)** – TUNE DMS: log in via the GUI and run reports (Parts Price List, Parts by Bin Location) using keyboard/screen automation. Reference images are in `packages/tune_dms/tune_dms/images/`.
+- **[revnext](https://pypi.org/project/revnext)** – Revolution Next: download the same reports via HTTP (cookies/session). Use this when you only need RevNext or want to avoid the GUI.
 
 ## Two separate libraries
 
