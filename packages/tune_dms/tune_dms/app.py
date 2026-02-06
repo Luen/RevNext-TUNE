@@ -163,3 +163,48 @@ def reset_tune_to_startup(
             time.sleep(0.05)
     logger.info("TUNE reset to normal startup config")
     return True
+
+
+# --- Menu navigation (keyboard: up/down traverse, right expand, left collapse) ---
+
+MENU_IMAGE_FOLDER_CLOSED = "tune_menu_selected_open.png"
+"""When this image is found, the selected menu item is a closed folder; press Right to expand."""
+
+
+def _menu_move_and_expand(
+    down_count: int,
+    expand_if_closed: bool = True,
+    press_enter: bool = False,
+) -> None:
+    """
+    Move down the menu by down_count, optionally expand if folder is closed, optionally press Enter.
+    Assumes focus is on the menu. Uses tune_menu_selected_open.png: if found, folder is closed → press Right.
+    """
+    for _ in range(down_count):
+        pyautogui.press("down")
+        time.sleep(0.05)
+    if expand_if_closed:
+        if screen.find_image_immediate(MENU_IMAGE_FOLDER_CLOSED):
+            pyautogui.press("right")
+            time.sleep(0.1)
+    if press_enter:
+        pyautogui.press("enter")
+        time.sleep(0.1)
+
+
+def open_work_with_orders() -> bool:
+    """
+    Open Parts -> Sales -> Work With Orders from the top of the menu.
+    Assumes the first menu item at the top is selected (e.g. after reset_tune_to_startup).
+    Down 6 → Parts (expand if closed), Down 1 → Sales (expand if closed), Down 6 → Work With Orders, Enter.
+    """
+    logger.info("Opening Parts -> Sales -> Work With Orders")
+    try:
+        _menu_move_and_expand(6, expand_if_closed=True)   # Parts
+        _menu_move_and_expand(1, expand_if_closed=True)   # Sales
+        _menu_move_and_expand(6, press_enter=True)        # Work With Orders
+        logger.info("Work With Orders opened")
+        return True
+    except Exception as e:
+        logger.error(f"Error opening Work With Orders: {e}")
+        return False
