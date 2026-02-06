@@ -224,8 +224,11 @@ def _build_submit_body(params: PartsPriceListParams) -> dict:
     }
 
 
-def _post_submit_closesubmit_factory(base_url: str, company: str, division: str, department: str):
+def _post_submit_closesubmit_factory(
+    base_url: str, company: str, division: str, department: str
+):
     """Return a hook that calls onChoose_btn_closesubmit (required for Parts Price List flow)."""
+
     def _post_submit_closesubmit(session: requests.Session) -> None:
         url = f"{base_url}/next/rest/si/presenter/onChoose_btn_closesubmit"
         body = {
@@ -240,6 +243,7 @@ def _post_submit_closesubmit_factory(base_url: str, company: str, division: str,
         }
         r = session.post(url, json=body)
         r.raise_for_status()
+
     return _post_submit_closesubmit
 
 
@@ -294,7 +298,11 @@ def download_parts_price_list_report(
     if return_data:
         out_path = None
     else:
-        out_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_Price_List.csv")
+        out_path = (
+            Path(output_path)
+            if output_path is not None
+            else (Path.cwd() / "Parts_Price_List.csv")
+        )
     params = report_params or PartsPriceListParams()
     if any(
         x is not None
@@ -318,14 +326,22 @@ def download_parts_price_list_report(
             division=division if division is not None else params.division,
             department=department if department is not None else params.department,
             part_type=part_type if part_type is not None else params.part_type,
-            from_franchise=from_franchise if from_franchise is not None else params.from_franchise,
-            to_franchise=to_franchise if to_franchise is not None else params.to_franchise,
+            from_franchise=from_franchise
+            if from_franchise is not None
+            else params.from_franchise,
+            to_franchise=to_franchise
+            if to_franchise is not None
+            else params.to_franchise,
             from_bin=from_bin if from_bin is not None else params.from_bin,
             to_bin=to_bin if to_bin is not None else params.to_bin,
             price_1=price_1 if price_1 is not None else params.price_1,
-            include_gst_1=include_gst_1 if include_gst_1 is not None else params.include_gst_1,
+            include_gst_1=include_gst_1
+            if include_gst_1 is not None
+            else params.include_gst_1,
             price_2=price_2 if price_2 is not None else params.price_2,
-            include_gst_2=include_gst_2 if include_gst_2 is not None else params.include_gst_2,
+            include_gst_2=include_gst_2
+            if include_gst_2 is not None
+            else params.include_gst_2,
         )
     if not (params.price_1 or "").strip() and not (params.price_2 or "").strip():
         raise ValueError(
@@ -333,7 +349,10 @@ def download_parts_price_list_report(
             "Set price_1 and/or price_2 (e.g. price_1='L', price_2='S', or price_1='F', price_2='O')."
         )
     session = get_or_create_session(config, SERVICE_OBJECT)
-    get_body = lambda: _build_submit_body(params)
+
+    def get_body():
+        return _build_submit_body(params)
+
     return run_report_flow(
         session,
         SERVICE_OBJECT,

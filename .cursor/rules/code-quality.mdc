@@ -6,6 +6,10 @@ alwaysApply: false
 
 # Code Quality and Clean Code
 
+## CI and Linting
+
+- **Before pushing or opening a PR:** Run `ruff check .` and `ruff format --check .` so CI (`.github/workflows/ci.yml`) passes. Fix any reported issues: use `def` instead of assigning a `lambda`, avoid bare `except:` (use `except Exception:` or a specific type), and keep formatting consistent.
+
 ## DRY (Don't Repeat Yourself)
 
 - **No cross-package imports.** `tune_dms` must not import from `revnext`, and vice versa. Each package is installable and usable on its own.

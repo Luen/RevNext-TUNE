@@ -1,0 +1,3 @@
+# Monorepo: install both packages in editable mode for local dev and CI.
+-e packages/revnext
+-e packages/tune_dms

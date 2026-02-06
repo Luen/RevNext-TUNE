@@ -316,7 +316,11 @@ def download_parts_by_bin_report(
     if return_data:
         out_path = None
     else:
-        out_path = Path(output_path) if output_path is not None else (Path.cwd() / "Parts_By_Bin_Location.csv")
+        out_path = (
+            Path(output_path)
+            if output_path is not None
+            else (Path.cwd() / "Parts_By_Bin_Location.csv")
+        )
     params = report_params or PartsByBinLocationParams()
     kwargs = {
         "company": company,
@@ -347,7 +351,10 @@ def download_parts_by_bin_report(
             **{k: v if v is not None else getattr(params, k) for k, v in kwargs.items()}
         )
     session = get_or_create_session(config, SERVICE_OBJECT)
-    get_body = lambda: _build_submit_body(params)
+
+    def get_body():
+        return _build_submit_body(params)
+
     return run_report_flow(
         session,
         SERVICE_OBJECT,

@@ -23,7 +23,9 @@ def _security_check_url(base_url: str) -> str:
 
 def _form_action_url(html: str, current_page_url: str) -> str | None:
     """Get form action URL from login page HTML, resolved against the current page URL (after redirects)."""
-    m = re.search(r'<form[^>]+action=["\']([^"\']*)["\']', html, re.IGNORECASE | re.DOTALL)
+    m = re.search(
+        r'<form[^>]+action=["\']([^"\']*)["\']', html, re.IGNORECASE | re.DOTALL
+    )
     if not m:
         m = re.search(r'action=["\']([^"\']*)["\']', html)
     if m:
@@ -36,8 +38,8 @@ def _extract_csrf(html: str) -> str | None:
     patterns = [
         r'name=["\']CSRFToken["\'][^>]*value=["\']([^"\']+)["\']',
         r'value=["\']([^"\']+)["\'][^>]*name=["\']CSRFToken["\']',
-        r'name=CSRFToken\s+value=([^\s>]+)',
-        r'value=([^\s>]+)\s+name=CSRFToken',
+        r"name=CSRFToken\s+value=([^\s>]+)",
+        r"value=([^\s>]+)\s+name=CSRFToken",
     ]
     for pat in patterns:
         m = re.search(pat, html, re.IGNORECASE)
@@ -77,7 +79,9 @@ def login(base_url: str, username: str, password: str) -> requests.Session:
     )
     r2.raise_for_status()
     if _is_login_page(r2.text):
-        raise ValueError("Login failed: still on login page after POST (check username/password).")
+        raise ValueError(
+            "Login failed: still on login page after POST (check username/password)."
+        )
     return session
 
 
@@ -112,6 +116,7 @@ def _cookie_header(pairs: list[list[str]]) -> str:
 def save_session(session: requests.Session, base_url: str, path: Path) -> None:
     """Persist session cookies to a JSON file for the given base URL domain."""
     from urllib.parse import urlparse
+
     parsed = urlparse(base_url)
     domain = parsed.netloc or parsed.path
     if not domain:
@@ -119,6 +124,7 @@ def save_session(session: requests.Session, base_url: str, path: Path) -> None:
     data = _session_file_format(domain, session)
     path.parent.mkdir(parents=True, exist_ok=True)
     import json
+
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
@@ -129,6 +135,7 @@ def load_session(base_url: str, path: Path) -> requests.Session | None:
     """
     from urllib.parse import urlparse
     import json
+
     if not path.exists():
         return None
     try:
@@ -142,15 +149,21 @@ def load_session(base_url: str, path: Path) -> requests.Session | None:
         return None
     parsed = urlparse(base_url)
     want_domain = parsed.netloc or parsed.path
-    if not want_domain or (domain != want_domain and not want_domain.endswith("." + domain.lstrip("."))):
+    if not want_domain or (
+        domain != want_domain and not want_domain.endswith("." + domain.lstrip("."))
+    ):
         return None
     session = requests.Session()
     session.headers.update(_common_headers(base_url))
-    session.headers["cookie"] = _cookie_header([[n, v] for n, v in cookies if isinstance(n, str) and isinstance(v, str)])
+    session.headers["cookie"] = _cookie_header(
+        [[n, v] for n, v in cookies if isinstance(n, str) and isinstance(v, str)]
+    )
     return session
 
 
-def get_or_create_session(config: RevNextConfig, service_object: str) -> requests.Session:
+def get_or_create_session(
+    config: RevNextConfig, service_object: str
+) -> requests.Session:
     """
     Return an authenticated session: load from config.session_path if present and valid,
     otherwise log in with config username/password, save session to disk, and return it.

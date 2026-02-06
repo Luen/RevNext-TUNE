@@ -30,12 +30,15 @@ def _common_headers(base_url: str) -> dict:
     }
 
 
-def get_or_create_session(config: RevNextConfig, service_object: str) -> requests.Session:
+def get_or_create_session(
+    config: RevNextConfig, service_object: str
+) -> requests.Session:
     """
     Return an authenticated session: load from config.session_path if present and valid,
     otherwise log in with config username/password, save session to disk, and return it.
     """
     from revnext.session import get_or_create_session as _get_or_create_session
+
     return _get_or_create_session(config, service_object)
 
 
@@ -118,7 +121,9 @@ def run_report_flow(
     if not submit_data.get("submittedSuccess"):
         has_error, warning_only = _has_submit_errors(submit_data)
         if has_error:
-            raise RuntimeError(f"submitActivityTask failed: {_submit_errors_message(submit_data)}")
+            raise RuntimeError(
+                f"submitActivityTask failed: {_submit_errors_message(submit_data)}"
+            )
         if warning_only:
             body = get_submit_body()
             body["stopOnWarning"] = False
@@ -130,7 +135,9 @@ def run_report_flow(
                     f"submitActivityTask failed after retry (warnings): {_submit_errors_message(submit_data)}"
                 )
         else:
-            raise RuntimeError(f"submitActivityTask did not report success: {_submit_errors_message(submit_data)}")
+            raise RuntimeError(
+                f"submitActivityTask did not report success: {_submit_errors_message(submit_data)}"
+            )
 
     task_id = extract_task_id(submit_data)
     if not task_id:

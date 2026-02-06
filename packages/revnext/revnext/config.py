@@ -11,6 +11,7 @@ from typing import Optional
 def _load_dotenv_if_available() -> None:
     try:
         from dotenv import load_dotenv
+
         load_dotenv()
     except ImportError:
         pass
@@ -47,7 +48,11 @@ class RevNextConfig:
         """
         if load_dotenv:
             _load_dotenv_if_available()
-        url = base_url or os.getenv("REVNEXT_URL") or "https://mikecarney.revolutionnext.com.au"
+        url = (
+            base_url
+            or os.getenv("REVNEXT_URL")
+            or "https://mikecarney.revolutionnext.com.au"
+        )
         if url and not url.startswith(("http://", "https://")):
             url = "https://" + url
         uname = username or os.getenv("REVNEXT_USERNAME") or ""
