@@ -79,6 +79,24 @@ def find_image_immediate(image_name: str, confidence: float = 0.9):
         return None
 
 
+def wait_for_image_to_disappear(
+    image_name: str, timeout: float = 30, confidence: float = 0.9, poll_interval: float = 0.3
+) -> bool:
+    """
+    Wait for an image to no longer be visible on screen (e.g. after validation finishes).
+
+    Returns:
+        True if the image disappeared within the timeout, False if still visible when timeout is reached.
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if not find_image_immediate(image_name, confidence=confidence):
+            return True
+        time.sleep(poll_interval)
+    logger.warning("Image %s still visible after %.1f seconds", image_name, timeout)
+    return False
+
+
 def get_images_dir() -> str:
     """Return the images directory (for launcher validation)."""
     return _get_images_dir()
