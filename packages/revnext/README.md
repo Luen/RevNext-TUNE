@@ -26,6 +26,42 @@ REVNEXT_PASSWORD=your_password
 
 The first run logs in via the web form (CSRF + `j_spring_security_check`) and saves the session to `REVNEXT_SESSION_PATH` or `.revnext-session.json`. Later runs load that file, check that the session is still valid, and only re-login if it has expired.
 
+## Parts reports
+
+Two report types are supported:
+
+| Report | Function | Params class |
+|--------|----------|--------------|
+| **Parts by Bin Location** | `download_parts_by_bin_report()` | `PartsByBinLocationParams` |
+| **Parts Price List** | `download_parts_price_list_report()` | `PartsPriceListParams` |
+
+Use the params class to set company, division, department, filters (franchise, bin, stock type, etc.) when you need non-defaults. Pass an instance as `report_params=...`; if omitted, defaults are used.
+
+## Parts enquiries – supplier part
+
+Search for supplier parts by part number and load full part data (e.g. dimensions, weight, price) from the **Supplier Part** enquiry. Import from `revnext.parts` or `revnext.parts.enquiries.supplier_part`:
+
+```python
+from revnext.common import get_or_create_session
+from revnext.parts.enquiries.supplier_part import (
+    GET_RESULTS_SERVICE,
+    load_supplier_part,
+    search_supplier_parts,
+)
+
+config = RevNextConfig.from_env()
+session = get_or_create_session(config, GET_RESULTS_SERVICE)
+
+# Search by part number (e.g. PZQ6160670)
+rows = search_supplier_parts(session, config.base_url, "PZQ6160670")
+# Each row has x_rowid, supid, supprt, prtdsc, supprc, spnam, etc.
+
+# Load full part for one supplier (e.g. Toyota supid 7001)
+row = next(r for r in rows if r.get("supid") == "7001")
+part = load_supplier_part(session, config.base_url, row["x_rowid"])
+# part has prtid, prtdsc, prtlen, prtwdt, prthgt, prtvol, prtwgt, supprc, etc. (with untlen, untwdt, unthgt, untvol, untwgt for units)
+```
+
 ## Quick start
 
 ```python
