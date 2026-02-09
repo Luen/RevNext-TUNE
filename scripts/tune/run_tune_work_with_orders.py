@@ -6,6 +6,7 @@ Run from repo root with tune_dms installed: pip install -e packages/tune_dms
 
 Requires TUNE_USER_ID and TUNE_USER_PASSWORD in env (or .env) for the launch+login path.
 """
+
 import logging
 import sys
 import time
@@ -52,7 +53,9 @@ def main() -> bool:
         if reset_ok:
             logger.info("TUNE was open; reset to startup.")
         else:
-            logger.info("TUNE not in focus or reset failed; launching and logging in...")
+            logger.info(
+                "TUNE not in focus or reset failed; launching and logging in..."
+            )
             app.launch_tune_application()
             time.sleep(3)
             if not app.login_to_tune():

@@ -98,9 +98,7 @@ class TuneReportGenerator:
                     params, reports_dir=reports_dir
                 )
                 if not download_success:
-                    logger.error(
-                        "Failed to download Parts by Bin Location Report"
-                    )
+                    logger.error("Failed to download Parts by Bin Location Report")
                     app.close_tune_application()
                     return False
                 logger.info("Parts by Bin Location Report generated successfully")
@@ -154,14 +152,10 @@ class TuneReportGenerator:
                     params, reports_dir=reports_dir
                 )
                 if not download_success:
-                    logger.error(
-                        "Failed to download Tyres by Bin Location Report"
-                    )
+                    logger.error("Failed to download Tyres by Bin Location Report")
                     app.close_tune_application()
                     return False
-                logger.info(
-                    "Tyres by Bin Location Report generated successfully"
-                )
+                logger.info("Tyres by Bin Location Report generated successfully")
             else:
                 logger.error("Failed to open Tyres by Bin Location Report")
                 app.close_tune_application()
@@ -200,15 +194,11 @@ class TuneReportGenerator:
                     "Ingham Toyota Parts Price List Report generated successfully"
                 )
             else:
-                logger.error(
-                    "Failed to open Ingham Toyota Parts Price List Report"
-                )
+                logger.error("Failed to open Ingham Toyota Parts Price List Report")
                 app.close_tune_application()
                 return False
 
-            logger.info(
-                "Generating Ingham Toyota Parts by Bin Location Report..."
-            )
+            logger.info("Generating Ingham Toyota Parts by Bin Location Report...")
             report_success = open_parts_by_bin_location_report()
             if report_success:
                 params = PartsByBinLocationParams(

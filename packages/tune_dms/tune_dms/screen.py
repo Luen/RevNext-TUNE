@@ -80,7 +80,10 @@ def find_image_immediate(image_name: str, confidence: float = 0.9):
 
 
 def wait_for_image_to_disappear(
-    image_name: str, timeout: float = 30, confidence: float = 0.9, poll_interval: float = 0.3
+    image_name: str,
+    timeout: float = 30,
+    confidence: float = 0.9,
+    poll_interval: float = 0.3,
 ) -> bool:
     """
     Wait for an image to no longer be visible on screen (e.g. after validation finishes).

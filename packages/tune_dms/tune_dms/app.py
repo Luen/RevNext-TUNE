@@ -74,9 +74,7 @@ def login_to_tune():
         pyautogui.press("space")
         return False
 
-    app_screen = screen.waitFor(
-        "tune_application_screen.png", timeout=30
-    )
+    app_screen = screen.waitFor("tune_application_screen.png", timeout=30)
     if not app_screen:
         logger.error("Application screen not found after login")
         return False
@@ -120,12 +118,17 @@ def reset_tune_to_startup(
     logger.info("Attempting to reset menu")
     max_attempts = 100
     attempts = 0
-    while not screen.find_image_immediate("tune_menu_selected.png") and attempts < max_attempts:
+    while (
+        not screen.find_image_immediate("tune_menu_selected.png")
+        and attempts < max_attempts
+    ):
         pyautogui.press("up")
         time.sleep(0.03)
         attempts += 1
     if attempts >= max_attempts:
-        logger.warning("tune_menu_selected.png not found after %d attempts", max_attempts)
+        logger.warning(
+            "tune_menu_selected.png not found after %d attempts", max_attempts
+        )
     time.sleep(0.2)
     logger.info("Attempting to clear search")
     for _ in range(3):
@@ -159,8 +162,8 @@ def reset_tune_to_startup(
             time.sleep(0.05)
     logger.info("Going back to menu")
     for _ in range(7):
-            pyautogui.press("tab")
-            time.sleep(0.05)
+        pyautogui.press("tab")
+        time.sleep(0.05)
     logger.info("TUNE reset to normal startup config")
     return True
 
@@ -200,9 +203,9 @@ def open_work_with_orders() -> bool:
     """
     logger.info("Opening Parts -> Sales -> Work With Orders")
     try:
-        _menu_move_and_expand(6, expand_if_closed=True)   # Parts
-        _menu_move_and_expand(1, expand_if_closed=True)   # Sales
-        _menu_move_and_expand(6, press_enter=True)        # Work With Orders
+        _menu_move_and_expand(6, expand_if_closed=True)  # Parts
+        _menu_move_and_expand(1, expand_if_closed=True)  # Sales
+        _menu_move_and_expand(6, press_enter=True)  # Work With Orders
         logger.info("Work With Orders opened")
         return True
     except Exception as e:
