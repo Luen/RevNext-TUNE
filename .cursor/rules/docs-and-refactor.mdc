@@ -1,0 +1,19 @@
+---
+description: Keep READMEs up-to-date; prefer refactoring over backward compatibility
+alwaysApply: true
+---
+
+# READMEs and Refactor Preference
+
+## Keep READMEs Up-to-Date
+
+- **Update the relevant README whenever code or usage changes.** When you add, remove, or change features, APIs, scripts, config, or usage, update the corresponding README so it stays accurate.
+- **Root** `README.md`: monorepo layout, how to install each package, links to package docs. Update when adding packages, scripts, or changing how the repo is used.
+- **Package READMEs** (e.g. `packages/revnext/README.md`, `packages/tune_dms/README.md`): install, config, and usage for that package. Update when adding or changing reports, enquiries, APIs, env vars, or examples.
+- Do not leave READMEs out of date after a change. If in doubt, update the README as part of the same task.
+
+## Prefer Refactor Over Fallbacks
+
+- **We are the only users of this repo.** There is no need to preserve backward compatibility for external consumers.
+- **Do not add fallbacks** or compatibility layers just to keep previous code working. Prefer to **refactor the code directly** (rename, change signatures, remove deprecated paths).
+- When changing behavior or APIs, update call sites and docs in one go rather than supporting old and new behavior.

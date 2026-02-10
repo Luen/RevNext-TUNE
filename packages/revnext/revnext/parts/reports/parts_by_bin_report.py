@@ -279,6 +279,7 @@ def download_parts_by_bin_report(
     max_polls: int = 60,
     poll_interval: float = 2,
     return_data: bool = False,
+    report_label: Optional[str] = None,
 ) -> Union[Path, bytes]:
     """
     Run the Parts By Bin Location report. By default saves CSV to output_path and returns the Path.
@@ -355,6 +356,7 @@ def download_parts_by_bin_report(
     def get_body():
         return _build_submit_body(params)
 
+    label = report_label or f"Parts by Bin Location - {params.department}"
     return run_report_flow(
         session,
         SERVICE_OBJECT,
@@ -364,6 +366,7 @@ def download_parts_by_bin_report(
         output_path=out_path,
         max_polls=max_polls,
         poll_interval=poll_interval,
+        report_label=label,
     )
 
 

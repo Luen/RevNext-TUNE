@@ -1,0 +1,28 @@
+---
+description: Do things multiple times completely; use this rule as a note and reminder list
+alwaysApply: true
+---
+
+# Repeated Tasks and Reminders
+
+## When Asked to Do Something Multiple Times
+
+- **Complete every instance.** If the user asks to do X for A, B, and C (or “also do X”, “and do Y”), do it for **all** of them. Do not stop after the first item unless the user says so.
+- **Batch when possible.** If the same change applies to several files or items, list them, make the changes to all, then verify (e.g. run lint once at the end).
+- **Confirm scope.** If “do this for all X” is ambiguous, quickly clarify (e.g. “all reports” vs “all scripts”) then do all of them.
+
+## Using This Rule as a Note / Reminder
+
+- **This file is a living note.** You can add or edit the **Reminders** section below. The agent should read it and follow relevant reminders when the conversation context matches (e.g. before committing, when adding a feature, when touching docs).
+- **When a reminder applies,** do the thing (or prompt the user) instead of skipping it. If the user said “remind me to X”, add X to the Reminders list and acknowledge it.
+
+---
+
+## Reminders (edit this section like a note)
+
+- Before pushing or opening a PR: run `ruff check .` and `ruff format --check .` (or `ruff format .` to fix); fix any reported issues.
+- When adding a new report or API in revnext: update `packages/revnext/README.md` if it changes how users use the package.
+- When adding a new script: consider putting it in `scripts/revnext/` or `scripts/tune/` and document how to run it in the script docstring.
+- When changing features, APIs, or usage: keep the relevant README up-to-date (see docs-and-refactor rule).
+
+*(Add more reminders below as needed.)*

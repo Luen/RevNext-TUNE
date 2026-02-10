@@ -104,6 +104,7 @@ def run_report_flow(
     post_submit_hook: Callable[[requests.Session], None] | None = None,
     max_polls: int = 60,
     poll_interval: float = 2,
+    report_label: str | None = None,
 ) -> Path | bytes:
     """
     Submit report task, poll until ready, loadData for download URL, then download CSV.
@@ -111,6 +112,7 @@ def run_report_flow(
     Optionally call post_submit_hook(session) after submit (e.g. onChoose_btn_closesubmit).
     If output_path is set: save content to file and return the Path.
     If output_path is None: return the report content as bytes (caller can save or load into pandas).
+    report_label: optional short label (e.g. "Parts Price List - 130") included in poll/complete messages.
     """
     submit_url = f"{base_url}/next/rest/si/static/submitActivityTask"
     body = get_submit_body()
@@ -142,7 +144,10 @@ def run_report_flow(
     task_id = extract_task_id(submit_data)
     if not task_id:
         raise RuntimeError("Could not get taskID from submit response.")
-    print(f"Task submitted: {task_id}")
+    if report_label:
+        print(f"[{report_label}] Task submitted: {task_id}")
+    else:
+        print(f"Task submitted: {task_id}")
 
     if post_submit_hook:
         post_submit_hook(session)
@@ -168,9 +173,15 @@ def run_report_flow(
         r.raise_for_status()
         poll_data = r.json()
         if is_poll_done(poll_data):
-            print("Report generation complete.")
+            msg = "Report generation complete."
+            if report_label:
+                msg = f"[{report_label}] {msg}"
+            print(msg)
             break
-        print(f"  Poll {i + 1}: still generating...")
+        msg = f"  Poll {i + 1}: still generating..."
+        if report_label:
+            msg = f"  [{report_label}] Poll {i + 1}: still generating..."
+        print(msg)
     else:
         raise RuntimeError("Timed out waiting for report.")
 
@@ -201,7 +212,10 @@ def run_report_flow(
 
     if not response_url.startswith("http"):
         response_url = f"{base_url}/next/{response_url.lstrip('/')}"
-    print(f"Download URL: {response_url}")
+    if report_label:
+        print(f"[{report_label}] Download URL: {response_url}")
+    else:
+        print(f"Download URL: {response_url}")
 
     r = session.get(response_url)
     r.raise_for_status()
@@ -209,5 +223,8 @@ def run_report_flow(
         return r.content
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(r.content)
-    print(f"Saved: {output_path}")
+    if report_label:
+        print(f"[{report_label}] Saved: {output_path}")
+    else:
+        print(f"Saved: {output_path}")
     return output_path
