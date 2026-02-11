@@ -19,11 +19,11 @@ ACTIVITY_TAB_ID = "N78b54de4_7cdc_43e0_9e42_71a49bec44f2"
 
 @dataclass
 class PartsPriceListParams:
-    """Parameters for the Parts Price List report. All default to current behavior if omitted."""
+    """Parameters for the Parts Price List report. Company, division, and department default to empty (no filter)."""
 
-    company: str = "03"
-    division: str = "1"
-    department: str = "130"
+    company: str = ""
+    division: str = ""
+    department: str = ""
     # Stock Parts ("stock") or Supplier Parts ("supplier") -> prttyp "s" or "p"
     part_type: Literal["stock", "supplier"] = "stock"
     from_franchise: str = ""
@@ -280,9 +280,9 @@ def download_parts_price_list_report(
         base_url: Override base URL (otherwise from config).
         return_data: If True, do not save to file; return the CSV content as bytes.
         report_params: Optional params object; overridden by any keyword args below.
-        company: Company code (e.g. "03"). Default "03".
-        division: Division code (e.g. "1"). Default "1".
-        department: Department code (e.g. "130"). Default "130".
+        company: Company code. Default "" (no filter).
+        division: Division code. Default "" (no filter).
+        department: Department code. Default "" (no department).
         part_type: "stock" or "supplier". Default "stock".
         from_franchise: From franchise code (e.g. "OL"). Use codes, not display names.
         to_franchise: To franchise code.
@@ -354,7 +354,9 @@ def download_parts_price_list_report(
     def get_body():
         return _build_submit_body(params)
 
-    label = report_label or f"Parts Price List - {params.department}"
+    label = report_label or (
+        f"Parts Price List - {params.department}" if params.department else "Parts Price List"
+    )
     return run_report_flow(
         session,
         SERVICE_OBJECT,

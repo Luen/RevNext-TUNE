@@ -17,13 +17,13 @@ ACTIVITY_TAB_ID = "Nce9eac79_528b_4fc4_a294_b055a6dde16b"
 
 @dataclass
 class PartsByBinLocationParams:
-    """Parameters for the Parts By Bin Location report. All default to current behavior if omitted."""
+    """Parameters for the Parts By Bin Location report. All of company, division, and department fields default to empty (no filter)."""
 
-    company: str = "03"
-    division: str = "1"
-    department: str = "130"
-    from_department: str = "130"
-    to_department: str = "130"
+    company: str = ""
+    division: str = ""
+    department: str = ""
+    from_department: str = ""
+    to_department: str = ""
     from_franchise: str = ""
     to_franchise: str = ""
     from_bin: str = ""
@@ -291,11 +291,11 @@ def download_parts_by_bin_report(
         base_url: Override base URL (otherwise from config).
         return_data: If True, do not save to file; return the CSV content as bytes.
         report_params: Optional params object; overridden by any keyword args below.
-        company: Company code (e.g. "03"). Default "03".
-        division: Division code (e.g. "1"). Default "1".
-        department: Department code for context (e.g. "130"). Default "130".
-        from_department: From department code. Default "130".
-        to_department: To department code. Default "130".
+        company: Company code. Default "" (no filter).
+        division: Division code. Default "" (no filter).
+        department: Department code for context. Default "" (no department).
+        from_department: From department code. Default "" (no filter).
+        to_department: To department code. Default "" (no filter).
         from_franchise / to_franchise: Franchise codes (use codes, not display names).
         from_bin / to_bin: Bin codes.
         from_movement_code / to_movement_code: Movement codes (must be valid for department/franchise).
@@ -356,7 +356,9 @@ def download_parts_by_bin_report(
     def get_body():
         return _build_submit_body(params)
 
-    label = report_label or f"Parts by Bin Location - {params.department}"
+    label = report_label or (
+        f"Parts by Bin Location - {params.department}" if params.department else "Parts by Bin Location"
+    )
     return run_report_flow(
         session,
         SERVICE_OBJECT,
