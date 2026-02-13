@@ -38,7 +38,7 @@ alwaysApply: false
 
 ## Python Style and Types
 
-- Use Python 3.10+ with type hints where helpful (`Optional[...]`, `Path`, `str | None`).
+- Use Python 3.14+ with type hints where helpful (`Optional[...]`, `Path`, `str | None`).
 - Prefer `pathlib.Path` for file paths in public APIs; accept `Path | str` and normalize with `Path(x)`.
 - Config: use dataclasses (e.g. `@dataclass(frozen=True)`) for `TuneConfig` / `RevNextConfig`; support both programmatic construction and `from_env()`.
 - Environment: use `os.getenv()` for env vars; optionally call `load_dotenv()` only if `python-dotenv` is installed (no hard dependency). Do not require a `.env` file for the library to work.
