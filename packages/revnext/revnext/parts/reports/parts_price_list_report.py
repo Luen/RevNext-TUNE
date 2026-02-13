@@ -355,7 +355,9 @@ def download_parts_price_list_report(
         return _build_submit_body(params)
 
     label = report_label or (
-        f"Parts Price List - {params.department}" if params.department else "Parts Price List"
+        f"Parts Price List - {params.department}"
+        if params.department
+        else "Parts Price List"
     )
     return run_report_flow(
         session,

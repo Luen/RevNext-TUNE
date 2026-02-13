@@ -26,6 +26,23 @@ REVNEXT_PASSWORD=your_password
 
 The first run logs in via the web form (CSRF + `j_spring_security_check`) and saves the session to `REVNEXT_SESSION_PATH` or `.revnext-session.json`. Later runs load that file, check that the session is still valid, and only re-login if it has expired.
 
+## Custom logger
+
+You can inject your own logger so all library log output uses your handler, level, and format. Call `set_logger(my_logger)` **before** using other revnext APIs. Pass `None` to revert to the default.
+
+```python
+import logging
+from revnext import set_logger, download_parts_by_bin_report
+
+logger = logging.getLogger("my_app.revnext")
+logger.setLevel(logging.DEBUG)
+# add handlers, formatters, etc.
+set_logger(logger)
+
+# Now all revnext log output goes to your logger
+download_parts_by_bin_report(output_path=Path("reports/parts_by_bin.csv"))
+```
+
 ## Parts reports
 
 Two report types are supported:

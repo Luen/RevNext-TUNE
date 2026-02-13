@@ -4,7 +4,6 @@ TUNE application lifecycle: launch, login, close, reset. Uses screen helpers and
 
 import os
 import time
-import logging
 import subprocess
 from typing import Optional
 
@@ -12,8 +11,9 @@ import pyautogui
 
 from tune_dms import state
 from tune_dms import screen
+from tune_dms.logger import logger_proxy
 
-logger = logging.getLogger(__name__)
+logger = logger_proxy(__name__)
 
 
 def launch_tune_application():

@@ -5,13 +5,13 @@ Uses app (launch/login/close/reset) and parts.reports.
 
 import os
 import time
-import logging
 import traceback
 
 import pyautogui
 
 from tune_dms.config import TuneConfig
 from tune_dms import app
+from tune_dms.logger import logger_proxy
 from tune_dms.parts.reports import (
     PartsPriceListParams,
     PartsByBinLocationParams,
@@ -21,7 +21,7 @@ from tune_dms.parts.reports import (
     parts_by_bin_location_report_download,
 )
 
-logger = logging.getLogger(__name__)
+logger = logger_proxy(__name__)
 
 
 class TuneReportGenerator:

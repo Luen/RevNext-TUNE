@@ -17,6 +17,23 @@ Set credentials (and optional paths) via environment variables or a `.env` file.
 | `TUNE_REPORTS_DIR` | No | Directory where reports are saved (default: current working directory) |
 | `TUNE_IMAGES_DIR` | No | Override path to reference images (default: package `images/`) |
 
+## Custom logger
+
+You can inject your own logger so all library log output uses your handler, level, and format. Call `set_logger(my_logger)` **before** using other tune_dms APIs. Pass `None` to revert to the default.
+
+```python
+import logging
+from tune_dms import set_logger, TuneConfig, run_tune_reports
+
+logger = logging.getLogger("my_app.tune_dms")
+logger.setLevel(logging.INFO)
+# add handlers, formatters, etc.
+set_logger(logger)
+
+config = TuneConfig.from_env()
+run_tune_reports(config)  # all tune_dms logs go to your logger
+```
+
 ## Usage example
 
 After installing, ensure TUNE is not running and that the desktop/shortcut is as expected. Then load config and run the built-in report workflow:

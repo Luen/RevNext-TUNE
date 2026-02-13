@@ -9,6 +9,7 @@ import sys
 from tune_dms import screen
 from tune_dms import state
 from tune_dms.config import TuneConfig
+from tune_dms.logger import logger_proxy
 from tune_dms.utils import TuneReportGenerator
 
 logging.basicConfig(
@@ -16,7 +17,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger(__name__)
+logger = logger_proxy(__name__)
 
 
 def main(config: TuneConfig) -> bool:

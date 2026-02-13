@@ -357,7 +357,9 @@ def download_parts_by_bin_report(
         return _build_submit_body(params)
 
     label = report_label or (
-        f"Parts by Bin Location - {params.department}" if params.department else "Parts by Bin Location"
+        f"Parts by Bin Location - {params.department}"
+        if params.department
+        else "Parts by Bin Location"
     )
     return run_report_flow(
         session,

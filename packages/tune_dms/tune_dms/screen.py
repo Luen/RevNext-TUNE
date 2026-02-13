@@ -4,13 +4,14 @@ Screen/image helpers: wait for images, find image once. Used by app and report m
 
 import os
 import time
-import logging
 
 import pyautogui
 
 from tune_dms import state
 
-logger = logging.getLogger(__name__)
+from tune_dms.logger import logger_proxy
+
+logger = logger_proxy(__name__)
 
 
 def _get_images_dir() -> str:
