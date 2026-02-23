@@ -269,6 +269,8 @@ def download_parts_price_list_report(
     poll_interval: float = 2,
     return_data: bool = False,
     report_label: Optional[str] = None,
+    max_retries: int = 3,
+    retry_delay: float = 5,
 ) -> Union[Path, bytes]:
     """
     Run the Parts Price List report. By default saves CSV to output_path and returns the Path.
@@ -293,6 +295,8 @@ def download_parts_price_list_report(
         price_2: Price 2 API code (e.g. "S" Stock, "R", "ST"). Default "S".
         include_gst_2: Include GST for price 2. Default True.
         return_data: If True, return CSV bytes instead of saving to a file.
+        max_retries: Number of attempts per API request when response is empty/HTML/invalid JSON (default 3).
+        retry_delay: Seconds between retries (default 5).
     """
     config = config or RevNextConfig.from_env()
     base_url = base_url or config.base_url
@@ -372,6 +376,8 @@ def download_parts_price_list_report(
         max_polls=max_polls,
         poll_interval=poll_interval,
         report_label=label,
+        max_retries=max_retries,
+        retry_delay=retry_delay,
     )
 
 

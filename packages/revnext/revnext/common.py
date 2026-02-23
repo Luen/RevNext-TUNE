@@ -3,6 +3,7 @@ Shared utilities for Revolution Next (*.revolutionnext.com.au) report downloads.
 Session creation (auto-login with persistence) and generic submit → poll → loadData → download flow.
 """
 
+import json
 import time
 from pathlib import Path
 from typing import Callable
@@ -10,6 +11,34 @@ from typing import Callable
 import requests
 
 from revnext.config import RevNextConfig
+from revnext.logger import get_logger
+
+logger = get_logger(__name__)
+
+# Minimum response length to consider as valid JSON (e.g. "{}").
+MIN_JSON_BODY_LENGTH = 2
+
+
+class ReportDownloadError(RuntimeError):
+    """
+    Raised when the report API returns invalid, empty, or non-JSON (e.g. HTML)
+    after all retry attempts. Consumers can catch this to distinguish transient
+    API failures from other errors.
+    """
+
+    pass
+
+
+def _looks_like_html(content: bytes) -> bool:
+    """True if the response body looks like HTML (error page, login redirect, etc.)."""
+    if not content or len(content) < 2:
+        return False
+    start = content.lstrip()[:200]
+    try:
+        text = start.decode("utf-8", errors="replace").strip().lower()
+    except Exception:
+        return False
+    return text.startswith("<!") or "<html" in text[:50]
 
 
 def _common_headers(base_url: str) -> dict:
@@ -28,6 +57,126 @@ def _common_headers(base_url: str) -> dict:
         "sec-fetch-site": "same-origin",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
     }
+
+
+def _parse_json_response(
+    response: requests.Response,
+    min_length: int = MIN_JSON_BODY_LENGTH,
+) -> dict:
+    """
+    Parse response body as JSON. Raises ValueError if body is empty, too small,
+    looks like HTML, or is invalid JSON. Used by retry logic to detect transient failures.
+    """
+    content = response.content
+    if content is None or len(content) < min_length:
+        raise ValueError(
+            f"Response body empty or too small (length {len(content) if content else 0}, "
+            f"expected at least {min_length} for valid JSON)"
+        )
+    if _looks_like_html(content):
+        raise ValueError(
+            "Response body looks like HTML (error page, login redirect, or 502/503 page)"
+        )
+    try:
+        return response.json()
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Response is not valid JSON: {e}") from e
+
+
+def _post_json_with_retry(
+    session: requests.Session,
+    url: str,
+    *,
+    max_attempts: int,
+    retry_delay: float,
+    report_label: str | None,
+    step_name: str,
+    **kwargs,
+) -> dict:
+    """
+    POST and parse JSON with retries. On empty/HTML/JSONDecodeError, log and retry.
+    After last attempt, raise ReportDownloadError.
+    """
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            r = session.post(url, **kwargs)
+            r.raise_for_status()
+            return _parse_json_response(r)
+        except (ValueError, json.JSONDecodeError) as e:
+            last_error = e
+            reason = str(e)
+        except requests.RequestException as e:
+            last_error = e
+            reason = str(e)
+        if attempt < max_attempts:
+            prefix = f"[{report_label}] " if report_label else ""
+            logger.warning(
+                "%s%s attempt %d of %d failed (%s); retrying in %.1fs.",
+                prefix,
+                step_name,
+                attempt,
+                max_attempts,
+                reason,
+                retry_delay,
+            )
+            time.sleep(retry_delay)
+        else:
+            break
+    label_suffix = f" [{report_label}]" if report_label else ""
+    raise ReportDownloadError(
+        f"Report API returned invalid or non-JSON response after {max_attempts} attempt(s){label_suffix}: {last_error}"
+    ) from last_error
+
+
+def _get_content_with_retry(
+    session: requests.Session,
+    url: str,
+    *,
+    max_attempts: int,
+    retry_delay: float,
+    report_label: str | None,
+    step_name: str,
+    min_content_length: int = 1,
+) -> bytes:
+    """
+    GET report content (e.g. CSV) with retries. Retries when body is empty or looks like HTML.
+    After last attempt, raise ReportDownloadError.
+    """
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            r = session.get(url)
+            r.raise_for_status()
+            content = r.content or b""
+            if len(content) < min_content_length:
+                raise ValueError(
+                    f"Response body empty or too small (length {len(content)})"
+                )
+            if _looks_like_html(content):
+                raise ValueError("Response body looks like HTML (error/redirect page)")
+            return content
+        except (ValueError, requests.RequestException) as e:
+            last_error = e
+            reason = str(e)
+        if attempt < max_attempts:
+            prefix = f"[{report_label}] " if report_label else ""
+            logger.warning(
+                "%s%s attempt %d of %d failed (%s); retrying in %.1fs.",
+                prefix,
+                step_name,
+                attempt,
+                max_attempts,
+                reason,
+                retry_delay,
+            )
+            time.sleep(retry_delay)
+        else:
+            break
+    label_suffix = f" [{report_label}]" if report_label else ""
+    raise ReportDownloadError(
+        f"Report download returned invalid or empty content after {max_attempts} attempt(s){label_suffix}: {last_error}"
+    ) from last_error
 
 
 def get_or_create_session(
@@ -105,6 +254,8 @@ def run_report_flow(
     max_polls: int = 60,
     poll_interval: float = 2,
     report_label: str | None = None,
+    max_retries: int = 3,
+    retry_delay: float = 5,
 ) -> Path | bytes:
     """
     Submit report task, poll until ready, loadData for download URL, then download CSV.
@@ -113,12 +264,20 @@ def run_report_flow(
     If output_path is set: save content to file and return the Path.
     If output_path is None: return the report content as bytes (caller can save or load into pandas).
     report_label: optional short label (e.g. "Parts Price List - 130") included in poll/complete messages.
+    max_retries: number of attempts per API request when response is empty, HTML, or invalid JSON (default 3).
+    retry_delay: seconds to wait between retries (default 5). Raises ReportDownloadError after last attempt.
     """
     submit_url = f"{base_url}/next/rest/si/static/submitActivityTask"
     body = get_submit_body()
-    r = session.post(submit_url, json=body)
-    r.raise_for_status()
-    submit_data = r.json()
+    submit_data = _post_json_with_retry(
+        session,
+        submit_url,
+        json=body,
+        max_attempts=max_retries,
+        retry_delay=retry_delay,
+        report_label=report_label,
+        step_name="submitActivityTask",
+    )
 
     if not submit_data.get("submittedSuccess"):
         has_error, warning_only = _has_submit_errors(submit_data)
@@ -129,9 +288,15 @@ def run_report_flow(
         if warning_only:
             body = get_submit_body()
             body["stopOnWarning"] = False
-            r = session.post(submit_url, json=body)
-            r.raise_for_status()
-            submit_data = r.json()
+            submit_data = _post_json_with_retry(
+                session,
+                submit_url,
+                json=body,
+                max_attempts=max_retries,
+                retry_delay=retry_delay,
+                report_label=report_label,
+                step_name="submitActivityTask (warnings retry)",
+            )
             if not submit_data.get("submittedSuccess"):
                 raise RuntimeError(
                     f"submitActivityTask failed after retry (warnings): {_submit_errors_message(submit_data)}"
@@ -169,9 +334,15 @@ def run_report_flow(
     }
     for i in range(max_polls):
         time.sleep(poll_interval)
-        r = session.post(poll_url, json=poll_body)
-        r.raise_for_status()
-        poll_data = r.json()
+        poll_data = _post_json_with_retry(
+            session,
+            poll_url,
+            json=poll_body,
+            max_attempts=max_retries,
+            retry_delay=retry_delay,
+            report_label=report_label,
+            step_name="poll",
+        )
         if is_poll_done(poll_data):
             msg = "Report generation complete."
             if report_label:
@@ -202,9 +373,15 @@ def run_report_flow(
         "loadMode": "EDIT",
         "loadRowid": "dummy",
     }
-    r = session.post(load_url, json=load_body)
-    r.raise_for_status()
-    load_data = r.json()
+    load_data = _post_json_with_retry(
+        session,
+        load_url,
+        json=load_body,
+        max_attempts=max_retries,
+        retry_delay=retry_delay,
+        report_label=report_label,
+        step_name="loadData",
+    )
 
     response_url = get_response_url_from_load_data(load_data)
     if not response_url:
@@ -217,12 +394,18 @@ def run_report_flow(
     else:
         print(f"Download URL: {response_url}")
 
-    r = session.get(response_url)
-    r.raise_for_status()
+    content = _get_content_with_retry(
+        session,
+        response_url,
+        max_attempts=max_retries,
+        retry_delay=retry_delay,
+        report_label=report_label,
+        step_name="download",
+    )
     if output_path is None:
-        return r.content
+        return content
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(r.content)
+    output_path.write_bytes(content)
     if report_label:
         print(f"[{report_label}] Saved: {output_path}")
     else:
