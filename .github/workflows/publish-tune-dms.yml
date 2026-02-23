@@ -60,4 +60,12 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
               run: |
                   TAG="tune-dms-v${{ steps.version.outputs.version }}"
-                  gh release create "$TAG" --generate-notes
+                  PREV=$(git tag -l 'tune-dms-v*' --sort=-v:refname | sed -n '2p')
+                  echo "## Commits" > commit-notes.md
+                  if [ -n "$PREV" ]; then
+                    git log "$PREV"..HEAD --pretty=format:"- %s (%h)" -- packages/tune_dms >> commit-notes.md 2>/dev/null || true
+                  else
+                    git log --pretty=format:"- %s (%h)" -- packages/tune_dms >> commit-notes.md 2>/dev/null || true
+                  fi
+                  NOTES_OPT=$( [ -n "$PREV" ] && echo "--notes-start-tag $PREV" || true )
+                  gh release create "$TAG" --generate-notes $NOTES_OPT --notes-file commit-notes.md
