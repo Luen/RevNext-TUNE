@@ -183,7 +183,5 @@ def parts_by_bin_location_report_download(
         )
         return True
     except Exception as e:
-        logger.error(
-            f"Error while downloading Parts by Bin Location Report: {e}"
-        )
+        logger.error(f"Error while downloading Parts by Bin Location Report: {e}")
         return False

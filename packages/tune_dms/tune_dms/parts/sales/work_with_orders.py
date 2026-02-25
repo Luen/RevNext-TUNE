@@ -74,7 +74,9 @@ class WorkWithOrderParams:
 
     # Payment method Customer ID
     customer_id: str
-    sales_rep: Optional[str] = None  # Blank for default (logged-in user if Sales Rep role)
+    sales_rep: Optional[str] = (
+        None  # Blank for default (logged-in user if Sales Rep role)
+    )
     # Dropdown: Order (default skip)
     order_type: Optional[str] = None  # e.g. "Order" or None to skip
     phone: Optional[str] = None  # Normalized: spaces stripped, +61 -> 0
@@ -95,12 +97,14 @@ class WorkWithOrderParams:
     address_unknown: bool = False  # Spacebar to check
     ship_to: Optional[str] = None
     # Not supported (dropdowns; would need Down/Up to select). Ignored in form.
-    freight_terms: Optional[Literal["Per Order", "Per Invoice", "Per Day", "Per P/O"]] = None
-    backorder_action: Optional[
-        Literal["Normal B/O", "Cancel B/O", "Hold B/O"]
+    freight_terms: Optional[
+        Literal["Per Order", "Per Invoice", "Per Day", "Per P/O"]
     ] = None
+    backorder_action: Optional[Literal["Normal B/O", "Cancel B/O", "Hold B/O"]] = None
     ship_via_index: Optional[int] = None  # Press Down this many times in dropdown
-    tax_type_index: Optional[int] = None  # Press Up this many times (GST 10%, Other Fee, GST Free Export)
+    tax_type_index: Optional[int] = (
+        None  # Press Up this many times (GST 10%, Other Fee, GST Free Export)
+    )
     customer_po: Optional[str] = None  # e.g. Shopify order number
     prefilled_data: bool = False  # True if order has prefilled data (extra validation boxes; skip Address Validation)
 
@@ -115,7 +119,7 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
         for _ in range(22):
             pyautogui.press("tab")
             time.sleep(0.05)
-        
+
         logger.info("Screen 1 Completed")
         pyautogui.press("enter")
         time.sleep(1)
@@ -158,12 +162,12 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
         if params.prefilled_data:
             logger.info("Prefilled data so traversing extra boxes")
             _shift_tab(2)
-        
+
         # Validate Phone number
         if screen.find_image_immediate("tune_caution_validation_button_selected.png"):
             logger.warning("Caution validation dialog detected.")
             pyautogui.press("enter")
-            
+
             time.sleep(1)
             screen.wait_for_image_to_disappear("tune_caution_validation_requesting.png")
 
@@ -177,11 +181,11 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
             pyautogui.click(screen.find_image_immediate("tune_favicon.png"))
             pyautogui.press("esc")
             time.sleep(5)
-        
+
         # If phone is blank, then there's no need to validate phone number
         if params.phone:
             _shift_tab(1)
-        
+
         time.sleep(1)
         _shift_tab(1)
 
@@ -282,7 +286,6 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
         time.sleep(1)
         pyautogui.press("enter")
 
-        
         logger.info("Please enter parts")
         input("Press Enter in this terminal when ready to continue... ")
         time.sleep(1)
@@ -291,7 +294,6 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
 
         # When entering price, check for price below cost warning alert
         # When enter invaild price, check for error alert
-
 
         logger.info("Add Order form submitted")
         return True
