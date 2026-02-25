@@ -21,6 +21,11 @@ parts/
 !packages/revnext/revnext/parts/
 !packages/revnext/revnext/parts/**
 packages/revnext/revnext/parts/**/__pycache__/
+
+# tune_dms package: Parts (do not ignore)
+!packages/tune_dms/tune_dms/parts/
+!packages/tune_dms/tune_dms/parts/**
+packages/tune_dms/tune_dms/parts/**/__pycache__/
 sdist/
 var/
 wheels/
