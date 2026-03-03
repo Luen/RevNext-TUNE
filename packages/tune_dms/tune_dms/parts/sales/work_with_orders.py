@@ -106,8 +106,12 @@ class WorkWithOrderParams:
         None  # Press Up this many times (GST 10%, Other Fee, GST Free Export)
     )
     customer_po: Optional[str] = None  # e.g. Shopify order number
-    prefilled_data: bool = False  # True if order has prefilled data (extra validation boxes)
-    skip_address_validation: bool = False  # True to skip the Address Validation checkbox (e.g. tab past it)
+    prefilled_data: bool = (
+        False  # True if order has prefilled data (extra validation boxes)
+    )
+    skip_address_validation: bool = (
+        False  # True to skip the Address Validation checkbox (e.g. tab past it)
+    )
 
 
 def fill_add_order_form(params: WorkWithOrderParams) -> bool:
