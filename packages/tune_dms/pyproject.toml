@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tune-dms"
-version = "0.1.6"
+version = "0.1.7"
 description = "TUNE DMS desktop GUI automation: login and report generation"
 readme = "README.md"
 license = "MIT"

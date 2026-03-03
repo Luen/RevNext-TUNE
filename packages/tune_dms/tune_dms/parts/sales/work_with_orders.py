@@ -106,7 +106,8 @@ class WorkWithOrderParams:
         None  # Press Up this many times (GST 10%, Other Fee, GST Free Export)
     )
     customer_po: Optional[str] = None  # e.g. Shopify order number
-    prefilled_data: bool = False  # True if order has prefilled data (extra validation boxes; skip Address Validation)
+    prefilled_data: bool = False  # True if order has prefilled data (extra validation boxes)
+    skip_address_validation: bool = False  # True to skip the Address Validation checkbox (e.g. tab past it)
 
 
 def fill_add_order_form(params: WorkWithOrderParams) -> bool:
@@ -278,6 +279,16 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
 
         # Shift+Tab x 1, Enter (OK)
         _shift_tab(1)
+
+        if params.skip_address_validation:
+            _shift_tab(4)
+            if params.mobile is not None:
+                _shift_tab(1)
+            logger.info("Ticking Skip Address Validation checkbox")
+            pyautogui.press("space")
+            time.sleep(0.05)
+            _shift_tab(26)
+
         time.sleep(0.05)
         logger.info("Screen 3 Completed")
         # Input for user to confirm
