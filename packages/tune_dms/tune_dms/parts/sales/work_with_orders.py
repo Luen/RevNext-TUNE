@@ -216,6 +216,8 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
             _shift_tab(2)
         if params.email:
             _shift_tab(1)
+        if not params.email:
+            _tab(2)
 
         if params.prefilled_data:
             logger.info("Prefilled data so skipping Address Validation checkbox")
