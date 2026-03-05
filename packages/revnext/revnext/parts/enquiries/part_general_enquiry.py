@@ -22,7 +22,10 @@ TAB_REGISTRY: dict[str, tuple[str, str]] = {
     "history": ("Revolution.Activity.IM.INQ.PartHistoryPR", "dsHistory"),
     "on_order": ("Revolution.Activity.IM.INQ.PartOnOrderPR", "dsOnOrder"),
     "rip": ("Revolution.Activity.IM.INQ.PartReceiptInProgressPR", "dsRip"),
-    "stock_in_transit": ("Revolution.Activity.IM.INQ.PartStockInTransitPR", "dsInTransit"),
+    "stock_in_transit": (
+        "Revolution.Activity.IM.INQ.PartStockInTransitPR",
+        "dsInTransit",
+    ),
     "service_in_progress": (
         "Revolution.Activity.IM.INQ.PartServiceInProgressPR",
         "dsServiceInProgress",
@@ -186,7 +189,9 @@ if __name__ == "__main__":
     frnid_want = "OL"
     row = next((r for r in rows if r.get("frnid") == frnid_want), rows[0])
     row_id = row["x_rowid"]
-    print(f"\nLoading part_suppliers for frnid={row.get('frnid')} (x_rowid={row_id})...")
+    print(
+        f"\nLoading part_suppliers for frnid={row.get('frnid')} (x_rowid={row_id})..."
+    )
     data = load_part_tab(session, base_url, row_id, "part_suppliers")
     if data:
         supprt_list = data.get("tt_supprt_list", [])
