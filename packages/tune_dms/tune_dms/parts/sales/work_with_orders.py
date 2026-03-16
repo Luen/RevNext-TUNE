@@ -287,13 +287,15 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
         _shift_tab(1)
 
         if params.skip_address_validation:
-            _shift_tab(4)
+            _shift_tab(5)
             if params.mobile is not None:
-                _shift_tab(1)
+                _shift_tab(2)
             logger.info("Ticking Skip Address Validation checkbox")
             pyautogui.press("space")
             time.sleep(0.05)
             _shift_tab(26)
+            if params.mobile is not None:
+                _shift_tab(2)
 
         time.sleep(0.05)
         logger.info("Screen 3 Completed")
