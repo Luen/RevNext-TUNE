@@ -49,6 +49,8 @@ config.validate()
 run_tune_reports(config)
 ```
 
+For more details and examples, see [packages/tune_dms/README.md](packages/tune_dms/README.md).
+
 ### RevNext (revnext)
 
 | Variable | Description |
@@ -72,7 +74,7 @@ download_parts_price_list_report(output_path=out / "Parts_Price_List.csv")
 
 To run both in one go (or in parallel), see the examples in [packages/revnext/README.md](packages/revnext/README.md).
 
-**Custom logger:** Both **tune_dms** and **revnext** support a custom logger. Call `set_logger(my_logger)` before using the library so all log output uses your handler and format. See each package’s README for a short example.
+**Custom logger:** Both **tune_dms** and **revnext** support a custom logger. Call `set_logger(my_logger)` before using the library so all log output uses your handler and format. See [packages/tune_dms/README.md](packages/tune_dms/README.md) and [packages/revnext/README.md](packages/revnext/README.md) for a short example.
 
 ## Usage overview
 
