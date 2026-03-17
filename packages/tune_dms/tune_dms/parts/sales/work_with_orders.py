@@ -120,6 +120,7 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
     Assumes Parts -> Sales -> Work With Orders is already open and focused.
     """
     try:
+        time.sleep(0.5)
         # Tab 22, Enter (Add)
         for _ in range(22):
             pyautogui.press("tab")
@@ -172,7 +173,6 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
         if screen.find_image_immediate("tune_caution_validation_button_selected.png"):
             logger.warning("Caution validation dialog detected.")
             pyautogui.press("enter")
-
             time.sleep(1)
             screen.wait_for_image_to_disappear("tune_caution_validation_requesting.png")
 
@@ -200,6 +200,16 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
             pyautogui.press("enter")
             time.sleep(1)
             screen.wait_for_image_to_disappear("tune_caution_validation_requesting.png")
+        
+        # If work with order invalid dialog detected, press space to continue
+        time.sleep(1)
+        if screen.find_image_immediate("tune_work_with_order_invalid.png"):
+            logger.warning("Work with order invalid dialog detected.")
+            time.sleep(1)
+            pyautogui.press("space")
+            input("Press Enter in this terminal when ready to continue... ")
+            time.sleep(1)
+            _shift_tab(3)
 
         # If validation dialog errors, pause for user to fix then continue
         if screen.find_image_immediate("tune_error_validation_button.png"):
@@ -207,10 +217,10 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
                 "Error validation dialog detected. Please fix the error in TUNE manually, "
                 "then press Enter in this terminal when ready to continue."
             )
-            input("Press Enter in this terminal when ready to continue... ")
-            pyautogui.click(screen.find_image_immediate("tune_favicon.png"))
-            pyautogui.press("esc")
-            time.sleep(5)
+            #input("Press Enter in this terminal when ready to continue... ")
+            #pyautogui.click(screen.find_image_immediate("tune_favicon.png"))
+            #pyautogui.press("esc")
+            #time.sleep(5)
 
         if params.phone:
             _shift_tab(2)
