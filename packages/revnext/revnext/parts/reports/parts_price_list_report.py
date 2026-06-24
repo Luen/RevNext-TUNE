@@ -271,6 +271,8 @@ def download_parts_price_list_report(
     report_label: Optional[str] = None,
     max_retries: int = 3,
     retry_delay: float = 5,
+    max_report_attempts: int = 2,
+    report_retry_delay: float = 30,
 ) -> Union[Path, bytes]:
     """
     Run the Parts Price List report. By default saves CSV to output_path and returns the Path.
@@ -378,6 +380,8 @@ def download_parts_price_list_report(
         report_label=label,
         max_retries=max_retries,
         retry_delay=retry_delay,
+        max_report_attempts=max_report_attempts,
+        report_retry_delay=report_retry_delay,
     )
 
 

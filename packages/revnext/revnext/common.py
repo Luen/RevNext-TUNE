@@ -243,7 +243,7 @@ def _submit_errors_message(response_data: dict) -> str:
     return "; ".join(parts) if parts else "Unknown error"
 
 
-def run_report_flow(
+def _run_report_flow_once(
     session: requests.Session,
     service_object: str,
     activity_tab_id: str,
@@ -258,7 +258,7 @@ def run_report_flow(
     retry_delay: float = 5,
 ) -> Path | bytes:
     """
-    Submit report task, poll until ready, loadData for download URL, then download CSV.
+    Single attempt: submit report task, poll until ready, loadData for download URL, then download CSV.
     On submit: if response has ERROR, raises; if only WARNING and not success, retries once with stopOnWarning=False.
     Optionally call post_submit_hook(session) after submit (e.g. onChoose_btn_closesubmit).
     If output_path is set: save content to file and return the Path.
@@ -411,3 +411,63 @@ def run_report_flow(
     else:
         print(f"Saved: {output_path}")
     return output_path
+
+
+def run_report_flow(
+    session: requests.Session,
+    service_object: str,
+    activity_tab_id: str,
+    get_submit_body: Callable[[], dict],
+    base_url: str,
+    output_path: Path | None = None,
+    post_submit_hook: Callable[[requests.Session], None] | None = None,
+    max_polls: int = 60,
+    poll_interval: float = 2,
+    report_label: str | None = None,
+    max_retries: int = 3,
+    retry_delay: float = 5,
+    max_report_attempts: int = 2,
+    report_retry_delay: float = 30,
+) -> Path | bytes:
+    """
+    Submit report task, poll until ready, loadData for download URL, then download CSV.
+    Retries the full flow up to max_report_attempts times on ReportDownloadError or RuntimeError.
+    """
+    last_error: BaseException | None = None
+    for attempt in range(1, max_report_attempts + 1):
+        try:
+            return _run_report_flow_once(
+                session,
+                service_object,
+                activity_tab_id,
+                get_submit_body,
+                base_url,
+                output_path=output_path,
+                post_submit_hook=post_submit_hook,
+                max_polls=max_polls,
+                poll_interval=poll_interval,
+                report_label=report_label,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+            )
+        except (ReportDownloadError, RuntimeError) as e:
+            last_error = e
+            if attempt < max_report_attempts:
+                prefix = f"[{report_label}] " if report_label else ""
+                logger.warning(
+                    "%sFull report attempt %d of %d failed (%s); retrying in %.1fs.",
+                    prefix,
+                    attempt,
+                    max_report_attempts,
+                    e,
+                    report_retry_delay,
+                )
+                time.sleep(report_retry_delay)
+            else:
+                break
+    label_suffix = f" [{report_label}]" if report_label else ""
+    if isinstance(last_error, ReportDownloadError):
+        raise last_error
+    raise ReportDownloadError(
+        f"Report download failed after {max_report_attempts} full attempt(s){label_suffix}: {last_error}"
+    ) from last_error
