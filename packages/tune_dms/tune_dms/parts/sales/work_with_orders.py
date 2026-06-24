@@ -200,7 +200,7 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
             pyautogui.press("enter")
             time.sleep(1)
             screen.wait_for_image_to_disappear("tune_caution_validation_requesting.png")
-        
+
         # If work with order invalid dialog detected, press space to continue
         time.sleep(1)
         if screen.find_image_immediate("tune_work_with_order_invalid.png"):
@@ -217,10 +217,10 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
                 "Error validation dialog detected. Please fix the error in TUNE manually, "
                 "then press Enter in this terminal when ready to continue."
             )
-            #input("Press Enter in this terminal when ready to continue... ")
-            #pyautogui.click(screen.find_image_immediate("tune_favicon.png"))
-            #pyautogui.press("esc")
-            #time.sleep(5)
+            # input("Press Enter in this terminal when ready to continue... ")
+            # pyautogui.click(screen.find_image_immediate("tune_favicon.png"))
+            # pyautogui.press("esc")
+            # time.sleep(5)
 
         if params.phone:
             _shift_tab(2)
