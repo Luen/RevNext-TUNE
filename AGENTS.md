@@ -16,7 +16,7 @@ Do not add a root-level installable package that depends on both. Do not add a `
 
 ### Layout
 
-- Root has **no** `pyproject.toml` that builds an installable package. Root contains README, .env.template, .gitignore, LICENSE only.
+- Root has **no** `pyproject.toml` that builds an installable package there. The installable packages live under **packages/** only.
 - All installable code lives under **packages/** with one folder per package; each package has its own `pyproject.toml`.
 - Configuration: each package has its own `config` module (e.g. `TuneConfig`, `RevNextConfig`) with `from_env()` and optional env vars. No shared config package across the two.
 
