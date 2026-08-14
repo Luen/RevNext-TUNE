@@ -1,12 +1,8 @@
----
-description: Code quality, DRY, package boundaries, and clean code principles
-globs: packages/**/*.py
-alwaysApply: false
----
+# Packages — code quality
 
-# Code Quality and Clean Code
+Applies when working under `packages/` (combined with the root `AGENTS.md`).
 
-## CI and Linting
+## CI and linting
 
 - **Before pushing or opening a PR:** Run `ruff check .` and `ruff format --check .` so CI (`.github/workflows/ci.yml`) passes. Fix any reported issues: use `def` instead of assigning a `lambda`, avoid bare `except:` (use `except Exception:` or a specific type), and keep formatting consistent.
 
@@ -16,27 +12,27 @@ alwaysApply: false
 - **Within a package:** Extract common logic into internal helpers or modules (e.g. `common.py`). Use parameters and config objects instead of duplicating code.
 - **Config:** Each package defines its own config class with `from_env()`; do not share a config module across both packages. No meta package that re-exports both.
 
-## Single Responsibility and Small Functions
+## Single responsibility and small functions
 
 - One function does one thing. If a function is long or has multiple “sections,” consider splitting it or extracting helpers.
 - Prefer small, testable units. Name functions by what they do (e.g. `extract_task_id`, `create_session`).
 
-## Naming and Readability
+## Naming and readability
 
 - Use descriptive names: variables and functions should reveal intent. Avoid single-letter names except trivial loop counters.
 - Constants for magic values: if a string or number is used in more than one place or has domain meaning, give it a name (e.g. `SERVICE_OBJECT`, `ACTIVITY_TAB_ID`, or config keys).
 
-## Explicit Over Implicit
+## Explicit over implicit
 
 - Prefer explicit parameters over hidden globals or env-only behavior. Public APIs should accept config/paths as arguments with sensible defaults (e.g. `base_url=None` then fall back to env).
 - Avoid silent failures: log or raise with a clear message instead of swallowing exceptions or returning None without explanation.
 
-## Error Handling and Fail Fast
+## Error handling and fail fast
 
 - Validate inputs and config early (e.g. `config.validate()`). Raise `ValueError` or `RuntimeError` with a clear message when preconditions fail.
 - When calling external services or I/O, prefer `raise_for_status()` or explicit checks; avoid bare `except:` and do not ignore errors without logging.
 
-## Python Style and Types
+## Python style and types
 
 - Use Python 3.14+ with type hints where helpful (`Optional[...]`, `Path`, `str | None`).
 - Prefer `pathlib.Path` for file paths in public APIs; accept `Path | str` and normalize with `Path(x)`.
@@ -45,13 +41,13 @@ alwaysApply: false
 - Logging: use the `logging` module; avoid `print` for library code except where script-style output is intentional (e.g. report progress).
 - Keep packages self-contained: no imports from outside the package (no root-level or sibling-package imports).
 
-## Package Conventions
+## Package conventions
 
 - **tune_dms:** Config in `config.py`; launcher in `launcher.py`; images in `tune_dms/images/`. Dependencies: pyautogui only.
 - **revnext:** Config in `config.py`; shared HTTP/session logic in `common.py`; report-specific modules per report. Dependency: `requests` only.
 - Public API via each package’s `__init__.py`. Library must work without a .env file; use optional `_load_dotenv_if_available()`.
 
-## Adding Features
+## Adding features
 
 - Add behavior only in the package that needs it. Implement similar behavior in the other package independently; do not add a shared dependency without explicit decision.
 - Keep dependency lists minimal so `pip install revnext` does not pull in tune_dms or GUI-related packages.
