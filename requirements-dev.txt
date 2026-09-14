@@ -5,4 +5,4 @@
 # local run into a red workflow with no change to the code.
 #
 # Install with: pip install -r requirements.txt -r requirements-dev.txt
-ruff==0.16.6
+ruff==0.16.7
