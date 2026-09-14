@@ -37,6 +37,7 @@ Put your base URL, username, and password in a `.env` file (e.g. in the project 
 | `REVNEXT_USERNAME` | Yes | RevNext login User ID |
 | `REVNEXT_PASSWORD` | Yes | RevNext login Password |
 | `REVNEXT_SESSION_PATH` | No | Where to save/load session cookies (default: `.revnext-session.json` in cwd) |
+| `REVNEXT_TIMEOUT` | No | Request timeout in seconds: `30` (read) or `10,120` (connect,read). Default `10,120` |
 
 Example `.env`:
 

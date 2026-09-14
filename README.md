@@ -59,6 +59,7 @@ For more details and examples, see [packages/tune_dms/README.md](packages/tune_d
 | `REVNEXT_USERNAME` | RevNext login User ID |
 | `REVNEXT_PASSWORD` | RevNext login Password |
 | `REVNEXT_SESSION_PATH` | (Optional) Session cookie file (default: `.revnext-session.json` in cwd) |
+| `REVNEXT_TIMEOUT` | (Optional) Request timeout in seconds: `30` (read) or `10,120` (connect,read). Default `10,120` |
 
 **In code:**
 

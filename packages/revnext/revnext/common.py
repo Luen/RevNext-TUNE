@@ -10,13 +10,44 @@ from typing import Callable
 
 import requests
 
-from revnext.config import RevNextConfig
+from revnext.config import DEFAULT_TIMEOUT, RevNextConfig, timeout_from_env
 from revnext.logger import get_logger
 
 logger = get_logger(__name__)
 
 # Minimum response length to consider as valid JSON (e.g. "{}").
 MIN_JSON_BODY_LENGTH = 2
+
+# Every request this package makes carries a timeout. requests itself defaults to
+# none, so a server that accepts the connection and then never answers blocks the
+# caller forever - no retry, no error, no log line, just a process that never returns.
+
+
+class TimeoutSession(requests.Session):
+    """A requests Session that applies a default timeout to every request.
+
+    Setting it here rather than at each call site means a new request cannot
+    silently be written without one. An explicit ``timeout=`` still wins.
+    """
+
+    def __init__(self, timeout: float | tuple[float, float] = DEFAULT_TIMEOUT):
+        super().__init__()
+        self.timeout = timeout
+
+    def request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(method, url, **kwargs)
+
+
+def new_session(
+    timeout: float | tuple[float, float] | None = None,
+) -> requests.Session:
+    """Create a session that times out by default.
+
+    timeout: seconds, or a (connect, read) pair. Defaults to REVNEXT_TIMEOUT if set,
+    else DEFAULT_TIMEOUT.
+    """
+    return TimeoutSession(timeout if timeout is not None else timeout_from_env())
 
 
 class ReportDownloadError(RuntimeError):

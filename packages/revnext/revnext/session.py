@@ -9,7 +9,7 @@ from urllib.parse import urljoin
 
 import requests
 
-from revnext.common import _common_headers
+from revnext.common import _common_headers, new_session
 from revnext.config import RevNextConfig
 
 
@@ -48,12 +48,17 @@ def _extract_csrf(html: str) -> str | None:
     return None
 
 
-def login(base_url: str, username: str, password: str) -> requests.Session:
+def login(
+    base_url: str,
+    username: str,
+    password: str,
+    timeout: float | tuple[float, float] | None = None,
+) -> requests.Session:
     """
     Log in to Revolution Next: GET login page for CSRF and session cookie, POST to j_spring_security_check.
-    Returns a requests.Session with auth cookies set.
+    Returns a requests.Session with auth cookies set; every request on it carries a timeout.
     """
-    session = requests.Session()
+    session = new_session(timeout)
     session.headers.update(_common_headers(base_url))
 
     login_url = _login_page_url(base_url)
@@ -129,9 +134,14 @@ def save_session(session: requests.Session, base_url: str, path: Path) -> None:
         json.dump(data, f, indent=2)
 
 
-def load_session(base_url: str, path: Path) -> requests.Session | None:
+def load_session(
+    base_url: str,
+    path: Path,
+    timeout: float | tuple[float, float] | None = None,
+) -> requests.Session | None:
     """
     Load a session from a previously saved JSON file. Returns None if file missing or invalid.
+    The returned session carries a default timeout on every request.
     """
     from urllib.parse import urlparse
     import json
@@ -153,7 +163,7 @@ def load_session(base_url: str, path: Path) -> requests.Session | None:
         domain != want_domain and not want_domain.endswith("." + domain.lstrip("."))
     ):
         return None
-    session = requests.Session()
+    session = new_session(timeout)
     session.headers.update(_common_headers(base_url))
     session.headers["cookie"] = _cookie_header(
         [[n, v] for n, v in cookies if isinstance(n, str) and isinstance(v, str)]
@@ -173,12 +183,12 @@ def get_or_create_session(
     base_url = config.base_url
     path = config.session_path or Path.cwd() / ".revnext-session.json"
 
-    session = load_session(base_url, path)
+    session = load_session(base_url, path, config.timeout)
     if session and is_session_valid(session, base_url):
         session.headers["x-service-object"] = service_object
         return session
 
-    session = login(base_url, config.username, config.password)
+    session = login(base_url, config.username, config.password, config.timeout)
     save_session(session, base_url, path)
     session.headers["x-service-object"] = service_object
     return session
