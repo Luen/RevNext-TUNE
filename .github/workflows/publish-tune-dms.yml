@@ -43,17 +43,24 @@ jobs:
               with:
                   python-version: '3.14'
             - name: Install build
-              run: pip install build twine
+              run: pip install build
             - name: Build tune-dms
               if: steps.check.outputs.exists == 'false'
               run: python -m build
               working-directory: packages/tune_dms
+            # Maintained publisher rather than a raw twine call: clearer diagnostics and
+            # a supported upgrade path. Still authenticating with PYPI_API_TOKEN.
+            #
+            # To move to Trusted Publishing later: add a trusted publisher on the PyPI
+            # project FIRST, then drop `password` here and add `id-token: write` to the
+            # job permissions. Attestations need that too - PyPI only accepts them from
+            # a Trusted Publisher, so they stay off while this uses a token.
             - name: Publish to PyPI
               if: steps.check.outputs.exists == 'false'
-              env:
-                  TWINE_USERNAME: __token__
-                  TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-              run: twine upload packages/tune_dms/dist/*
+              uses: pypa/gh-action-pypi-publish@v1.14.2
+              with:
+                  packages-dir: packages/tune_dms/dist
+                  password: ${{ secrets.PYPI_API_TOKEN }}
             - name: Create GitHub Release
               if: steps.check.outputs.exists == 'false'
               env:
