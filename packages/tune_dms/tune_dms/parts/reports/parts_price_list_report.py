@@ -2,6 +2,7 @@
 
 import os
 import time
+
 import pyautogui
 
 from tune_dms import screen
@@ -11,7 +12,7 @@ from tune_dms.parts.reports.params import PartsPriceListParams
 logger = logger_proxy(__name__)
 
 
-def open_parts_price_list_report(currently_selected_report: str = None):
+def open_parts_price_list_report(currently_selected_report: str | None = None):
     """
     Navigate to and open the Parts Price List Report in TUNE by using keyboard navigation.
 
@@ -46,13 +47,15 @@ def open_parts_price_list_report(currently_selected_report: str = None):
 
         logger.info("Parts Price List Report navigation sequence executed successfully")
         return True
-    except Exception as e:
-        logger.error(f"Error while opening Parts Price List Report: {e}")
+    except Exception:
+        logger.exception("Error while opening Parts Price List Report")
         return False
 
 
 def parts_price_list_report_download(
-    params: PartsPriceListParams = None, reports_dir: str = None, **kwargs
+    params: PartsPriceListParams | None = None,
+    reports_dir: str | None = None,
+    **kwargs,
 ):
     """
     Download the Parts Price List Report with user-friendly parameter options.
@@ -167,6 +170,6 @@ def parts_price_list_report_download(
             f"Parts Price List Report downloaded successfully (size: {file_size} bytes)"
         )
         return True
-    except Exception as e:
-        logger.error(f"Error while downloading Parts Price List Report: {e}")
+    except Exception:
+        logger.exception("Error while downloading Parts Price List Report")
         return False

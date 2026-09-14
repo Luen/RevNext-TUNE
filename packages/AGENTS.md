@@ -5,6 +5,8 @@ Applies when working under `packages/` (combined with the root `AGENTS.md`).
 ## CI and linting
 
 - **Before pushing or opening a PR:** Run `ruff check .` and `ruff format --check .` so CI (`.github/workflows/ci.yml`) passes. Fix any reported issues: use `def` instead of assigning a `lambda`, avoid bare `except:` (use `except Exception:` or a specific type), and keep formatting consistent.
+- **Install the pinned Ruff:** `pip install -r requirements-dev.txt`. The version is pinned there and the rule set is pinned in `ruff.toml`, so a clean local run means a green CI run. Do not rely on whatever `pip install ruff` happens to give you.
+- **Tests run in CI** (`python -m unittest discover -s tests -t .`) across Python 3.10-3.14. Run them before pushing.
 
 ## DRY (Don't Repeat Yourself)
 

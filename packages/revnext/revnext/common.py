@@ -5,8 +5,9 @@ Session creation (auto-login with persistence) and generic submit → poll → l
 
 import json
 import time
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
 
 import requests
 
@@ -17,6 +18,26 @@ logger = get_logger(__name__)
 
 # Minimum response length to consider as valid JSON (e.g. "{}").
 MIN_JSON_BODY_LENGTH = 2
+
+# Revolution Next timestamps carry the tenant's local offset. Brisbane has no DST, so a
+# fixed +10:00 is exact year-round. Previously the code took a naive datetime.now() from
+# whatever machine it ran on and labelled it "+10:00" regardless, so a report submitted
+# from any other timezone asked the server for the wrong window.
+REVNEXT_TIMEZONE = timezone(timedelta(hours=10))
+
+
+def revnext_now() -> datetime:
+    """Current time in the RevNext tenant's timezone."""
+    return datetime.now(REVNEXT_TIMEZONE)
+
+
+def revnext_offset_text(tz: timezone = REVNEXT_TIMEZONE) -> str:
+    """The UTC offset as RevNext formats it, e.g. "+10:00"."""
+    offset = tz.utcoffset(None) or timedelta(0)
+    sign = "-" if offset < timedelta(0) else "+"
+    hours, remainder = divmod(int(abs(offset).total_seconds()), 3600)
+    return f"{sign}{hours:02d}:{remainder // 60:02d}"
+
 
 # Every request this package makes carries a timeout. requests itself defaults to
 # none, so a server that accepts the connection and then never answers blocks the
@@ -57,8 +78,6 @@ class ReportDownloadError(RuntimeError):
     API failures from other errors.
     """
 
-    pass
-
 
 def _looks_like_html(content: bytes) -> bool:
     """True if the response body looks like HTML (error page, login redirect, etc.)."""
@@ -67,7 +86,7 @@ def _looks_like_html(content: bytes) -> bool:
     start = content.lstrip()[:200]
     try:
         text = start.decode("utf-8", errors="replace").strip().lower()
-    except Exception:
+    except (UnicodeDecodeError, AttributeError):
         return False
     return text.startswith("<!") or "<html" in text[:50]
 

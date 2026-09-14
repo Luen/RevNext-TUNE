@@ -6,8 +6,7 @@ import logging
 import os
 import sys
 
-from tune_dms import screen
-from tune_dms import state
+from tune_dms import screen, state
 from tune_dms.config import TuneConfig
 from tune_dms.logger import logger_proxy
 from tune_dms.utils import TuneReportGenerator
@@ -39,8 +38,8 @@ def main(config: TuneConfig) -> bool:
             return False
         report_generator = TuneReportGenerator(config)
         return report_generator.run_reports()
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
+    except Exception:
+        logger.exception("An error occurred")
         return False
     finally:
         state._config = None

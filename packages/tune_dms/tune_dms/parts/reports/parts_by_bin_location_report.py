@@ -30,13 +30,15 @@ def open_parts_by_bin_location_report():
 
         logger.info("Parts by Bin Location Report opened successfully")
         return True
-    except Exception as e:
-        logger.error(f"Error while opening Parts by Bin Location Report: {e}")
+    except Exception:
+        logger.exception("Error while opening Parts by Bin Location Report")
         return False
 
 
 def parts_by_bin_location_report_download(
-    params: PartsByBinLocationParams = None, reports_dir: str = None, **kwargs
+    params: PartsByBinLocationParams | None = None,
+    reports_dir: str | None = None,
+    **kwargs,
 ):
     """
     Download the Parts by Bin Location Report with user-friendly parameter options.
@@ -182,6 +184,6 @@ def parts_by_bin_location_report_download(
             f"Parts by Bin Location Report downloaded successfully (size: {file_size} bytes)"
         )
         return True
-    except Exception as e:
-        logger.error(f"Error while downloading Parts by Bin Location Report: {e}")
+    except Exception:
+        logger.exception("Error while downloading Parts by Bin Location Report")
         return False

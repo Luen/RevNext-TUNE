@@ -98,7 +98,10 @@ from tune_dms import (
     parts_price_list_report_download,
     parts_by_bin_location_report_download,
 )
-from tune_dms.parts.reports import open_parts_price_list_report, open_parts_by_bin_location_report
+from tune_dms.parts.reports import (
+    open_parts_price_list_report,
+    open_parts_by_bin_location_report,
+)
 
 reports_dir = "C:/Reports"
 params_pl = PartsPriceListParams(

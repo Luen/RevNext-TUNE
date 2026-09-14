@@ -1,0 +1,51 @@
+# Ruff configuration for the monorepo.
+#
+# The rule set is pinned explicitly rather than left to Ruff's default. The default
+# has shifted between releases, so "ruff check ." meant different things locally and
+# in CI, and a clean local run was no guarantee the workflow would pass. The Ruff
+# version is pinned alongside it in requirements-dev.txt.
+#
+# Both packages declare requires-python = ">=3.10", so PEP 604 unions (X | None) and
+# PEP 585 generics (list[str]) are available everywhere.
+
+target-version = "py310"
+line-length = 88
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort - import ordering
+    "UP",   # pyupgrade - modern syntax for the target version
+    "B",    # flake8-bugbear - likely bugs
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PIE",  # flake8-pie
+    "RUF",  # Ruff-specific
+    "DTZ",  # flake8-datetimez - naive datetimes
+    "LOG",  # flake8-logging
+    "TRY",  # tryceratops - exception handling
+    "BLE",  # flake8-blind-except
+    "S",    # flake8-bandit - security
+]
+ignore = [
+    "E501",    # line length: the formatter handles code; the rest is comments and URLs
+    "S101",    # assert - used throughout the tests
+    "TRY003",  # long messages outside the exception class: we prefer the context
+    "TRY300",  # "return in try" reads better than an else block for these flows
+    "TRY301",  # raising inside try to trigger the local retry/except is the pattern here
+]
+
+[lint.per-file-ignores]
+# Tests reach into private helpers and mock internals on purpose.
+"tests/**" = ["S105", "S106", "SLF001"]
+# Scripts are operator entry points: printing and broad top-level handling is the point.
+"scripts/**" = ["T201", "BLE001"]
+# GUI automation: pyautogui, window managers and the OS fail in unpredictable ways, and
+# the contract of these helpers is "any failure means the step did not work". They all
+# log with a traceback via logger.exception, so the catch is broad but never silent.
+"packages/tune_dms/**" = ["BLE001"]
+
+[format]
+docstring-code-format = true

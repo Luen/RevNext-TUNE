@@ -5,12 +5,11 @@ Assumes Parts -> Sales -> Work With Orders is already open.
 
 import time
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import pyautogui
 
 from tune_dms import screen
-
 from tune_dms.logger import logger_proxy
 
 logger = logger_proxy(__name__)
@@ -19,7 +18,7 @@ FREIGHT_TERMS = ("Per Order", "Per Invoice", "Per Day", "Per P/O")
 BACKORDER_ACTIONS = ("Normal B/O", "Cancel B/O", "Hold B/O")
 
 
-def _normalize_phone(phone: Optional[str]) -> str:
+def _normalize_phone(phone: str | None) -> str:
     """Strip spaces and substitute +61 with 0."""
     if not phone or not phone.strip():
         return ""
@@ -29,7 +28,7 @@ def _normalize_phone(phone: Optional[str]) -> str:
     return s
 
 
-def _normalize_date(date_str: Optional[str]) -> Optional[str]:
+def _normalize_date(date_str: str | None) -> str | None:
     """Return 6 digits DDMMYY (slashes removed, year two digits). Returns None if empty."""
     if not date_str or not str(date_str).strip():
         return None
@@ -48,7 +47,7 @@ def _normalize_date(date_str: Optional[str]) -> Optional[str]:
     return digits[:6].zfill(6) if digits else None
 
 
-def _type_field(value: Optional[str], delay: float = 0.05) -> None:
+def _type_field(value: str | None, delay: float = 0.05) -> None:
     """Type value if present."""
     if value is not None and str(value).strip():
         pyautogui.write(str(value).strip())
@@ -74,38 +73,36 @@ class WorkWithOrderParams:
 
     # Payment method Customer ID
     customer_id: str
-    sales_rep: Optional[str] = (
-        None  # Blank for default (logged-in user if Sales Rep role)
-    )
+    sales_rep: str | None = None  # Blank for default (logged-in user if Sales Rep role)
     # Dropdown: Order (default skip)
-    order_type: Optional[str] = None  # e.g. "Order" or None to skip
-    phone: Optional[str] = None  # Normalized: spaces stripped, +61 -> 0
-    contact: Optional[str] = None
-    email: Optional[str] = None
-    date_reqd: Optional[str] = None
-    order_note: Optional[str] = None
-    email_2: Optional[str] = None  # Email again
-    fax: Optional[str] = None
-    mobile: Optional[str] = None
-    contact_2: Optional[str] = None  # Contact again
-    state: Optional[str] = None
-    postal_code: Optional[str] = None
-    address_line_4: Optional[str] = None
-    address_line_3: Optional[str] = None
-    address_line_2: Optional[str] = None
-    address_line_1: Optional[str] = None
+    order_type: str | None = None  # e.g. "Order" or None to skip
+    phone: str | None = None  # Normalized: spaces stripped, +61 -> 0
+    contact: str | None = None
+    email: str | None = None
+    date_reqd: str | None = None
+    order_note: str | None = None
+    email_2: str | None = None  # Email again
+    fax: str | None = None
+    mobile: str | None = None
+    contact_2: str | None = None  # Contact again
+    state: str | None = None
+    postal_code: str | None = None
+    address_line_4: str | None = None
+    address_line_3: str | None = None
+    address_line_2: str | None = None
+    address_line_1: str | None = None
     address_unknown: bool = False  # Spacebar to check
-    ship_to: Optional[str] = None
+    ship_to: str | None = None
     # Not supported (dropdowns; would need Down/Up to select). Ignored in form.
-    freight_terms: Optional[
-        Literal["Per Order", "Per Invoice", "Per Day", "Per P/O"]
-    ] = None
-    backorder_action: Optional[Literal["Normal B/O", "Cancel B/O", "Hold B/O"]] = None
-    ship_via_index: Optional[int] = None  # Press Down this many times in dropdown
-    tax_type_index: Optional[int] = (
+    freight_terms: Literal["Per Order", "Per Invoice", "Per Day", "Per P/O"] | None = (
+        None
+    )
+    backorder_action: Literal["Normal B/O", "Cancel B/O", "Hold B/O"] | None = None
+    ship_via_index: int | None = None  # Press Down this many times in dropdown
+    tax_type_index: int | None = (
         None  # Press Up this many times (GST 10%, Other Fee, GST Free Export)
     )
-    customer_po: Optional[str] = None  # e.g. Shopify order number
+    customer_po: str | None = None  # e.g. Shopify order number
     prefilled_data: bool = (
         False  # True if order has prefilled data (extra validation boxes)
     )
@@ -326,6 +323,6 @@ def fill_add_order_form(params: WorkWithOrderParams) -> bool:
 
         logger.info("Add Order form submitted")
         return True
-    except Exception as e:
-        logger.exception("Error filling Add Order form: %s", e)
+    except Exception:
+        logger.exception("Error filling Add Order form")
         return False
