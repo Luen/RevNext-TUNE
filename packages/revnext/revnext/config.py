@@ -22,6 +22,37 @@ def _default_session_path() -> Path:
     return Path.cwd() / ".revnext-session.json"
 
 
+DEFAULT_CONNECT_TIMEOUT = 10.0
+DEFAULT_READ_TIMEOUT = 120.0
+DEFAULT_TIMEOUT: tuple[float, float] = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
+
+
+def parse_timeout(value: str | None) -> tuple[float, float] | None:
+    """Parse a timeout spec: "30" (read only) or "10,120" ((connect, read)).
+
+    Returns None for empty or unparseable input so the caller keeps its default
+    rather than accidentally running with no timeout at all.
+    """
+    if not value or not value.strip():
+        return None
+    parts = [p.strip() for p in value.split(",")]
+    try:
+        numbers = [float(p) for p in parts if p]
+    except ValueError:
+        return None
+    if len(numbers) == 1:
+        return (DEFAULT_CONNECT_TIMEOUT, numbers[0])
+    if len(numbers) == 2:
+        return (numbers[0], numbers[1])
+    return None
+
+
+def timeout_from_env() -> float | tuple[float, float]:
+    """Request timeout from REVNEXT_TIMEOUT, else DEFAULT_TIMEOUT."""
+    _load_dotenv_if_available()
+    return parse_timeout(os.getenv("REVNEXT_TIMEOUT")) or DEFAULT_TIMEOUT
+
+
 @dataclass(frozen=True)
 class RevNextConfig:
     """Configuration for Revolution Next (*.revolutionnext.com.au) API / report downloads."""
@@ -30,6 +61,7 @@ class RevNextConfig:
     username: str
     password: str
     session_path: Optional[Path] = None
+    timeout: float | tuple[float, float] = DEFAULT_TIMEOUT
 
     @classmethod
     def from_env(
@@ -39,12 +71,13 @@ class RevNextConfig:
         username: Optional[str] = None,
         password: Optional[str] = None,
         session_path: Optional[Path] = None,
+        timeout: float | tuple[float, float] | None = None,
         load_dotenv: bool = True,
     ) -> "RevNextConfig":
         """Build config from environment variables. Override any field by passing it explicitly.
 
         Env: REVNEXT_URL (full base URL), REVNEXT_USERNAME, REVNEXT_PASSWORD,
-        optional REVNEXT_SESSION_PATH.
+        optional REVNEXT_SESSION_PATH, optional REVNEXT_TIMEOUT ("30" or "10,120").
         """
         if load_dotenv:
             _load_dotenv_if_available()
@@ -67,6 +100,7 @@ class RevNextConfig:
             username=uname,
             password=pwd,
             session_path=sp,
+            timeout=timeout if timeout is not None else timeout_from_env(),
         )
 
     def validate(self) -> None:
