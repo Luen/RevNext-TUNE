@@ -1,0 +1,8 @@
+# Development and CI tooling.
+#
+# Ruff is pinned so `ruff check .` means the same thing on a laptop and in CI. Left
+# unpinned, a release that changes the default rule set (or adds rules) turns a green
+# local run into a red workflow with no change to the code.
+#
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+ruff==0.16.6

@@ -5,7 +5,6 @@ Users can set settings via environment variables or pass config programmatically
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 def _load_dotenv_if_available() -> None:
@@ -17,7 +16,7 @@ def _load_dotenv_if_available() -> None:
         pass
 
 
-def _optional_int_env(name: str) -> Optional[int]:
+def _optional_int_env(name: str) -> int | None:
     val = os.getenv(name)
     if val is None or val.strip() == "":
         return None
@@ -34,26 +33,26 @@ class TuneConfig:
     user_id: str
     password: str
     shortcut_path: str = r"C:\Users\Public\Desktop\TUNE.lnk"
-    images_dir: Optional[str] = None
-    reports_dir: Optional[str] = None
+    images_dir: str | None = None
+    reports_dir: str | None = None
     # Optional reset indices when TUNE is already open (reset flow): select by index
     # (e.g. department_index=2 selects 3rd department). None = do nothing for that field.
-    department_index: Optional[int] = None
-    division_index: Optional[int] = None
-    company_index: Optional[int] = None
+    department_index: int | None = None
+    division_index: int | None = None
+    company_index: int | None = None
 
     @classmethod
     def from_env(
         cls,
         *,
-        user_id: Optional[str] = None,
-        password: Optional[str] = None,
-        shortcut_path: Optional[str] = None,
-        images_dir: Optional[str] = None,
-        reports_dir: Optional[str] = None,
-        department_index: Optional[int] = None,
-        division_index: Optional[int] = None,
-        company_index: Optional[int] = None,
+        user_id: str | None = None,
+        password: str | None = None,
+        shortcut_path: str | None = None,
+        images_dir: str | None = None,
+        reports_dir: str | None = None,
+        department_index: int | None = None,
+        division_index: int | None = None,
+        company_index: int | None = None,
         load_dotenv: bool = True,
     ) -> "TuneConfig":
         """Build config from environment variables. Override any field by passing it explicitly."""

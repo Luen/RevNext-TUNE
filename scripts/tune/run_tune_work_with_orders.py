@@ -12,11 +12,8 @@ import sys
 import time
 
 import pyautogui
-
+from tune_dms import app, screen, state
 from tune_dms.config import TuneConfig
-from tune_dms import state
-from tune_dms import screen
-from tune_dms import app
 from tune_dms.parts.sales import WorkWithOrderParams, fill_add_order_form
 
 logging.basicConfig(
@@ -29,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def ensure_menu_at_top(max_attempts: int = 100) -> bool:
     """Press Up until tune_menu_selected.png is found (menu first item selected)."""
-    for attempt in range(max_attempts):
+    for _attempt in range(max_attempts):
         if screen.find_image_immediate("tune_menu_selected.png"):
             return True
         pyautogui.press("up")
@@ -43,8 +40,8 @@ def main() -> bool:
         config = TuneConfig.from_env()
         config.validate()
         state._config = config
-    except ValueError as e:
-        logger.error("Config invalid (need TUNE_USER_ID and TUNE_USER_PASSWORD): %s", e)
+    except ValueError:
+        logger.exception("Config invalid (need TUNE_USER_ID and TUNE_USER_PASSWORD)")
         return False
 
     try:
@@ -105,8 +102,8 @@ def main() -> bool:
 
         logger.info("Done. Work With Orders opened and dummy order form submitted.")
         return True
-    except Exception as e:
-        logger.exception("Error: %s", e)
+    except Exception:
+        logger.exception("Error")
         return False
     finally:
         state._config = None

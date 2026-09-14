@@ -12,18 +12,17 @@ Example:
 """
 
 import logging
-from typing import Optional
 
-_custom_logger: Optional[logging.Logger] = None
+_custom_logger: logging.Logger | None = None
 
 
-def set_logger(logger: Optional[logging.Logger]) -> None:
+def set_logger(logger: logging.Logger | None) -> None:
     """Set a custom logger for the package. Pass None to use the default logger again."""
     global _custom_logger
     _custom_logger = logger
 
 
-def get_logger(module_name: Optional[str] = None) -> logging.Logger:
+def get_logger(module_name: str | None = None) -> logging.Logger:
     """Return the custom logger if set, otherwise the standard logger for the given module."""
     if _custom_logger is not None:
         return _custom_logger

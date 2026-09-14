@@ -77,6 +77,8 @@ Users import as: `from tune_dms import ...` and `from revnext import ...`.
 ### Reminders (edit this section like a note)
 
 - Before pushing or opening a PR: run `ruff check .` and `ruff format --check .` (or `ruff format .` to fix); fix any reported issues.
+- Install the pinned toolchain with `pip install -r requirements-dev.txt`; the Ruff version is pinned there and the rule set in `ruff.toml`, so local and CI agree.
+- Run the tests too: `python -m unittest discover -s tests -t .`. CI runs them on Python 3.10-3.14.
 - When adding a new report or API in revnext: update `packages/revnext/README.md` if it changes how users use the package.
 - When adding a new script: consider putting it in `scripts/revnext/` or `scripts/tune/` and document how to run it in the script docstring.
 - When changing features, APIs, or usage: keep the relevant README up-to-date (see **READMEs and refactor preference** above).

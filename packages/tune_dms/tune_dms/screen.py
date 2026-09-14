@@ -8,7 +8,6 @@ import time
 import pyautogui
 
 from tune_dms import state
-
 from tune_dms.logger import logger_proxy
 
 logger = logger_proxy(__name__)
@@ -51,8 +50,8 @@ def waitFor(image_name, timeout=10, confidence=0.9):
                 return position
         except pyautogui.ImageNotFoundException:
             pass
-        except Exception as e:
-            logger.error(f"Error finding image: {e}")
+        except Exception:
+            logger.exception("Error finding image")
             return None
 
         time.sleep(0.5)

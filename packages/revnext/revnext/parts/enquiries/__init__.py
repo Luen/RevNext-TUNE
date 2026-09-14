@@ -1,5 +1,5 @@
 """
-Enquiries (lookups) for Revolution Next parts – supplier part search and load.
+Enquiries (lookups) for Revolution Next parts - supplier part search and load.
 """
 
 from revnext.parts.enquiries.supplier_part import (

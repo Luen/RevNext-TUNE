@@ -141,7 +141,9 @@ data = load_part_tab(session, config.base_url, row_id, "part_suppliers")
 # data has tt_supprt_list, tt_supprt_dtls, etc.
 
 # Or load multiple tabs at once
-tabs_data = load_part_tabs(session, config.base_url, row_id, ["header", "part_suppliers", "stock"])
+tabs_data = load_part_tabs(
+    session, config.base_url, row_id, ["header", "part_suppliers", "stock"]
+)
 # tabs_data["part_suppliers"], tabs_data["header"], tabs_data["stock"]
 ```
 
@@ -185,7 +187,11 @@ When `return_data=True`, the function returns `bytes`; when `return_data=False` 
 
 ```python
 from pathlib import Path
-from revnext import RevNextConfig, download_parts_by_bin_report, download_parts_price_list_report
+from revnext import (
+    RevNextConfig,
+    download_parts_by_bin_report,
+    download_parts_price_list_report,
+)
 
 config = RevNextConfig.from_env()  # or RevNextConfig( base_url="...", username="...", password="...", session_path=... )
 
@@ -205,7 +211,11 @@ path2 = download_parts_price_list_report(
 from pathlib import Path
 from typing import Optional
 
-from revnext import RevNextConfig, download_parts_by_bin_report, download_parts_price_list_report
+from revnext import (
+    RevNextConfig,
+    download_parts_by_bin_report,
+    download_parts_price_list_report,
+)
 
 
 def download_all_reports(
@@ -233,7 +243,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from revnext import RevNextConfig, download_parts_by_bin_report, download_parts_price_list_report
+from revnext import (
+    RevNextConfig,
+    download_parts_by_bin_report,
+    download_parts_price_list_report,
+)
 
 
 def download_all_reports_parallel(

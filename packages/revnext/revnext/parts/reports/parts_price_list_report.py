@@ -4,13 +4,17 @@ Uses auto-login with session persistence (no manual cookie export).
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import requests
 
-from revnext.common import get_or_create_session, run_report_flow
+from revnext.common import (
+    get_or_create_session,
+    revnext_now,
+    revnext_offset_text,
+    run_report_flow,
+)
 from revnext.config import RevNextConfig
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsPriceListPR"
@@ -40,8 +44,8 @@ class PartsPriceListParams:
 
 def _build_submit_body(params: PartsPriceListParams) -> dict:
     """Build the submitActivityTask request body from params. Use today's date for the trigger."""
-    tz = "+10:00"
-    now = datetime.now()
+    tz = revnext_offset_text()
+    now = revnext_now()
     start_date = now.strftime("%Y-%m-%d")
     start_time = f"{start_date}T{now.strftime('%H:%M')}:00.000{tz}"
     prttyp = "s" if params.part_type == "stock" else "p"
@@ -248,32 +252,32 @@ def _post_submit_closesubmit_factory(
 
 
 def download_parts_price_list_report(
-    config: Optional[RevNextConfig] = None,
-    output_path: Optional[Path | str] = None,
-    base_url: Optional[str] = None,
-    report_params: Optional[PartsPriceListParams] = None,
+    config: RevNextConfig | None = None,
+    output_path: Path | str | None = None,
+    base_url: str | None = None,
+    report_params: PartsPriceListParams | None = None,
     *,
-    company: Optional[str] = None,
-    division: Optional[str] = None,
-    department: Optional[str] = None,
-    part_type: Optional[Literal["stock", "supplier"]] = None,
-    from_franchise: Optional[str] = None,
-    to_franchise: Optional[str] = None,
-    from_bin: Optional[str] = None,
-    to_bin: Optional[str] = None,
-    price_1: Optional[str] = None,
-    include_gst_1: Optional[bool] = None,
-    price_2: Optional[str] = None,
-    include_gst_2: Optional[bool] = None,
+    company: str | None = None,
+    division: str | None = None,
+    department: str | None = None,
+    part_type: Literal["stock", "supplier"] | None = None,
+    from_franchise: str | None = None,
+    to_franchise: str | None = None,
+    from_bin: str | None = None,
+    to_bin: str | None = None,
+    price_1: str | None = None,
+    include_gst_1: bool | None = None,
+    price_2: str | None = None,
+    include_gst_2: bool | None = None,
     max_polls: int = 60,
     poll_interval: float = 2,
     return_data: bool = False,
-    report_label: Optional[str] = None,
+    report_label: str | None = None,
     max_retries: int = 3,
     retry_delay: float = 5,
     max_report_attempts: int = 2,
     report_retry_delay: float = 30,
-) -> Union[Path, bytes]:
+) -> Path | bytes:
     """
     Run the Parts Price List report. By default saves CSV to output_path and returns the Path.
     If return_data=True, returns the report content as bytes (no file saved); use e.g. pd.read_csv(io.BytesIO(data)).

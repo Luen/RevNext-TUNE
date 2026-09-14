@@ -3,14 +3,12 @@ TUNE application lifecycle: launch, login, close, reset. Uses screen helpers and
 """
 
 import os
-import time
 import subprocess
-from typing import Optional
+import time
 
 import pyautogui
 
-from tune_dms import state
-from tune_dms import screen
+from tune_dms import screen, state
 from tune_dms.logger import logger_proxy
 
 logger = logger_proxy(__name__)
@@ -27,11 +25,13 @@ def launch_tune_application():
             logger.error(f"TUNE shortcut not found at {shortcut_path}")
             raise FileNotFoundError(f"TUNE shortcut not found at {shortcut_path}")
 
-        process = subprocess.Popen(f'start "" "{shortcut_path}"', shell=True)
+        # argv is fixed and shell=False, so the config path is never shell-interpreted;
+        # cmd resolves from PATH on Windows, which is the only OS TUNE runs on.
+        process = subprocess.Popen(["cmd", "/c", "start", "", shortcut_path])  # noqa: S603, S607
         logger.info("TUNE process started using shortcut")
         return process
-    except Exception as e:
-        logger.error(f"Failed to launch TUNE: {e}")
+    except Exception:
+        logger.exception("Failed to launch TUNE")
         raise
 
 
@@ -94,15 +94,15 @@ def close_tune_application():
         pyautogui.press("e")
         logger.info("TUNE close sequence executed successfully")
         return True
-    except Exception as e:
-        logger.error(f"Error while closing TUNE: {e}")
+    except Exception:
+        logger.exception("Error while closing TUNE")
         return False
 
 
 def reset_tune_to_startup(
-    department_index: Optional[int] = None,
-    division_index: Optional[int] = None,
-    company_index: Optional[int] = None,
+    department_index: int | None = None,
+    division_index: int | None = None,
+    company_index: int | None = None,
 ) -> bool:
     """
     Reset TUNE to normal startup state when it is already open and in focus.
@@ -186,10 +186,9 @@ def _menu_move_and_expand(
     for _ in range(down_count):
         pyautogui.press("down")
         time.sleep(0.05)
-    if expand_if_closed:
-        if screen.find_image_immediate(MENU_IMAGE_FOLDER_CLOSED):
-            pyautogui.press("right")
-            time.sleep(0.1)
+    if expand_if_closed and screen.find_image_immediate(MENU_IMAGE_FOLDER_CLOSED):
+        pyautogui.press("right")
+        time.sleep(0.1)
     if press_enter:
         pyautogui.press("enter")
         time.sleep(0.1)
@@ -208,6 +207,6 @@ def open_work_with_orders() -> bool:
         _menu_move_and_expand(6, press_enter=True)  # Work With Orders
         logger.info("Work With Orders opened")
         return True
-    except Exception as e:
-        logger.error(f"Error opening Work With Orders: {e}")
+    except Exception:
+        logger.exception("Error opening Work With Orders")
         return False

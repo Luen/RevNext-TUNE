@@ -5,20 +5,19 @@ Uses app (launch/login/close/reset) and parts.reports.
 
 import os
 import time
-import traceback
 
 import pyautogui
 
-from tune_dms.config import TuneConfig
 from tune_dms import app
+from tune_dms.config import TuneConfig
 from tune_dms.logger import logger_proxy
 from tune_dms.parts.reports import (
-    PartsPriceListParams,
     PartsByBinLocationParams,
-    open_parts_price_list_report,
-    parts_price_list_report_download,
+    PartsPriceListParams,
     open_parts_by_bin_location_report,
+    open_parts_price_list_report,
     parts_by_bin_location_report_download,
+    parts_price_list_report_download,
 )
 
 logger = logger_proxy(__name__)
@@ -295,11 +294,10 @@ class TuneReportGenerator:
             logger.info("TUNE reports generation completed successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Error during TUNE report generation: {e}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error during TUNE report generation")
             try:
                 app.close_tune_application()
             except Exception:
-                pass
+                logger.debug("Could not close TUNE after the failure", exc_info=True)
             return False

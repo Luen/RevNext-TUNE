@@ -5,7 +5,6 @@ Configuration for Revolution Next (*.revolutionnext.com.au) report downloads.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 def _load_dotenv_if_available() -> None:
@@ -60,17 +59,17 @@ class RevNextConfig:
     base_url: str
     username: str
     password: str
-    session_path: Optional[Path] = None
+    session_path: Path | None = None
     timeout: float | tuple[float, float] = DEFAULT_TIMEOUT
 
     @classmethod
     def from_env(
         cls,
         *,
-        base_url: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        session_path: Optional[Path] = None,
+        base_url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        session_path: Path | None = None,
         timeout: float | tuple[float, float] | None = None,
         load_dotenv: bool = True,
     ) -> "RevNextConfig":

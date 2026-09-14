@@ -4,11 +4,15 @@ Uses auto-login with session persistence (no manual cookie export).
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
-from revnext.common import get_or_create_session, run_report_flow
+from revnext.common import (
+    get_or_create_session,
+    revnext_now,
+    revnext_offset_text,
+    run_report_flow,
+)
 from revnext.config import RevNextConfig
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsByBinLocationPR"
@@ -39,15 +43,15 @@ class PartsByBinLocationParams:
     no_alternate_bin_location: bool = False
     no_primary_but_has_alternate_bin: bool = False
     has_both_primary_and_alternate_bin: bool = False
-    last_sale_before: Optional[str] = None  # ISO date-time or None
-    last_receipt_before: Optional[str] = None
+    last_sale_before: str | None = None  # ISO date-time or None
+    last_receipt_before: str | None = None
     print_average_cost: bool = False
 
 
 def _build_submit_body(params: PartsByBinLocationParams) -> dict:
     """Build the submitActivityTask request body from params."""
-    tz = "+10:00"
-    now = datetime.now()
+    tz = revnext_offset_text()
+    now = revnext_now()
     start_date = now.strftime("%Y-%m-%d")
     start_time = f"{start_date}T{now.strftime('%H:%M')}:00.000{tz}"
     stktyp = "P" if params.show_stock_as == "Physical Stock" else "A"
@@ -249,42 +253,42 @@ def _build_submit_body(params: PartsByBinLocationParams) -> dict:
 
 
 def download_parts_by_bin_report(
-    config: Optional[RevNextConfig] = None,
-    output_path: Optional[Path | str] = None,
-    base_url: Optional[str] = None,
-    report_params: Optional[PartsByBinLocationParams] = None,
+    config: RevNextConfig | None = None,
+    output_path: Path | str | None = None,
+    base_url: str | None = None,
+    report_params: PartsByBinLocationParams | None = None,
     *,
-    company: Optional[str] = None,
-    division: Optional[str] = None,
-    department: Optional[str] = None,
-    from_department: Optional[str] = None,
-    to_department: Optional[str] = None,
-    from_franchise: Optional[str] = None,
-    to_franchise: Optional[str] = None,
-    from_bin: Optional[str] = None,
-    to_bin: Optional[str] = None,
-    from_movement_code: Optional[str] = None,
-    to_movement_code: Optional[str] = None,
-    show_stock_as: Optional[Literal["Physical Stock", "Available Stock"]] = None,
-    print_when_stock_not_zero: Optional[bool] = None,
-    print_part_when_stock_zero: Optional[bool] = None,
-    print_part_when_stock_on_order_zero: Optional[bool] = None,
-    no_primary_bin_location: Optional[bool] = None,
-    no_alternate_bin_location: Optional[bool] = None,
-    no_primary_but_has_alternate_bin: Optional[bool] = None,
-    has_both_primary_and_alternate_bin: Optional[bool] = None,
-    last_sale_before: Optional[str] = None,
-    last_receipt_before: Optional[str] = None,
-    print_average_cost: Optional[bool] = None,
+    company: str | None = None,
+    division: str | None = None,
+    department: str | None = None,
+    from_department: str | None = None,
+    to_department: str | None = None,
+    from_franchise: str | None = None,
+    to_franchise: str | None = None,
+    from_bin: str | None = None,
+    to_bin: str | None = None,
+    from_movement_code: str | None = None,
+    to_movement_code: str | None = None,
+    show_stock_as: Literal["Physical Stock", "Available Stock"] | None = None,
+    print_when_stock_not_zero: bool | None = None,
+    print_part_when_stock_zero: bool | None = None,
+    print_part_when_stock_on_order_zero: bool | None = None,
+    no_primary_bin_location: bool | None = None,
+    no_alternate_bin_location: bool | None = None,
+    no_primary_but_has_alternate_bin: bool | None = None,
+    has_both_primary_and_alternate_bin: bool | None = None,
+    last_sale_before: str | None = None,
+    last_receipt_before: str | None = None,
+    print_average_cost: bool | None = None,
     max_polls: int = 60,
     poll_interval: float = 2,
     return_data: bool = False,
-    report_label: Optional[str] = None,
+    report_label: str | None = None,
     max_retries: int = 3,
     retry_delay: float = 5,
     max_report_attempts: int = 2,
     report_retry_delay: float = 30,
-) -> Union[Path, bytes]:
+) -> Path | bytes:
     """
     Run the Parts By Bin Location report. By default saves CSV to output_path and returns the Path.
     If return_data=True, returns the report content as bytes (no file saved); use e.g. pd.read_csv(io.BytesIO(data)).

@@ -104,7 +104,8 @@ def is_session_valid(session: requests.Session, base_url: str) -> bool:
         r = session.get(url, timeout=15)
         r.raise_for_status()
         return not _is_login_page(r.text)
-    except Exception:
+    except requests.RequestException:
+        # Any transport or HTTP failure means we cannot vouch for the session.
         return False
 
 
@@ -143,8 +144,8 @@ def load_session(
     Load a session from a previously saved JSON file. Returns None if file missing or invalid.
     The returned session carries a default timeout on every request.
     """
-    from urllib.parse import urlparse
     import json
+    from urllib.parse import urlparse
 
     if not path.exists():
         return None

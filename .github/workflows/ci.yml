@@ -6,28 +6,73 @@ on:
     pull_request:
         branches: [main]
 
+# A new push supersedes the run already in flight for the same ref.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+env:
+    PYTHON_LATEST: '3.14'
+
 jobs:
+    lint:
+        name: Lint and format
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Set up Python ${{ env.PYTHON_LATEST }}
+              uses: actions/setup-python@v6
+              with:
+                  python-version: ${{ env.PYTHON_LATEST }}
+                  cache: pip
+                  cache-dependency-path: requirements-dev.txt
+
+            # Ruff is pinned in requirements-dev.txt so CI and local runs agree.
+            - name: Install Ruff
+              run: pip install -r requirements-dev.txt
+
+            # github format puts findings inline on the diff instead of only in the log.
+            - name: Ruff check
+              run: ruff check . --output-format=github
+
+            - name: Ruff format
+              run: ruff format --check --diff .
+
     test:
+        name: Test (Python ${{ matrix.python-version }})
         runs-on: ubuntu-latest
         strategy:
+            fail-fast: false
             matrix:
-                python-version: ['3.14']
+                # The full range both packages advertise in requires-python, so the
+                # claim is tested rather than assumed. 3.14 is the primary target.
+                python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
 
         steps:
-            - uses: actions/checkout@v3
+            - uses: actions/checkout@v5
 
             - name: Set up Python ${{ matrix.python-version }}
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v6
               with:
                   python-version: ${{ matrix.python-version }}
+                  cache: pip
+                  cache-dependency-path: |
+                      requirements.txt
+                      packages/*/pyproject.toml
 
-            - name: Install dependencies
+            - name: Install packages
               run: |
                   python -m pip install --upgrade pip
                   pip install -r requirements.txt
-                  pip install ruff
 
-            - name: Lint with Ruff
-              run: |
-                  ruff check .
-                  ruff format --check .
+            # revnext only: tune_dms imports pyautogui at module level, which needs an X
+            # display. It is Windows GUI automation, so it is install-checked, not imported.
+            - name: Import check
+              run: python -c "import revnext; print(revnext.__name__)"
+
+            - name: Run tests
+              run: python -m unittest discover -s tests -t . -v
