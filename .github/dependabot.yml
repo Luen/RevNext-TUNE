@@ -1,0 +1,28 @@
+# Keeps pinned versions current without a manual sweep.
+#
+# The workflow actions had drifted two major versions behind (checkout v4/v5 against
+# v7) because nothing was watching them. Updates are grouped so this arrives as one
+# reviewable PR per ecosystem rather than one per dependency.
+version: 2
+
+updates:
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          github-actions:
+              patterns: ['*']
+      commit-message:
+          prefix: ci
+
+    # Ruff is pinned here so local and CI agree; this keeps that pin from going stale.
+    - package-ecosystem: pip
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          dev-tooling:
+              patterns: ['*']
+      commit-message:
+          prefix: chore

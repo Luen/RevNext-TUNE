@@ -12,7 +12,7 @@ jobs:
         permissions:
             contents: write # push tags and create releases
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v7
               with:
                   fetch-depth: 0
                   # PAT required: GITHUB_TOKEN cannot push tags when the commit touches .github/workflows
@@ -39,7 +39,7 @@ jobs:
                   TAG="revnext-v${{ steps.version.outputs.version }}"
                   git tag "$TAG"
                   git push origin "$TAG"
-            - uses: actions/setup-python@v5
+            - uses: actions/setup-python@v7
               with:
                   python-version: '3.14'
             - name: Install build
