@@ -236,6 +236,8 @@ def _post_submit_closesubmit_factory(
     def _post_submit_closesubmit(
         session: requests.Session, activity_tab_id: str
     ) -> None:
+        from revnext.http import _post_json_with_retry
+
         url = f"{base_url}/next/rest/si/presenter/onChoose_btn_closesubmit"
         body = {
             "_userContext_vg_coid": company,
@@ -247,8 +249,17 @@ def _post_submit_closesubmit_factory(
             ],
             "uiType": "ISC",
         }
-        r = session.post(url, json=body)
-        r.raise_for_status()
+        # Shared JSON/HTML retry path. After submit, report_flow aborts on
+        # login-page HTML so the full attempt can restart with a fresh tab.
+        _post_json_with_retry(
+            session,
+            url,
+            json=body,
+            max_attempts=3,
+            retry_delay=5,
+            report_label=None,
+            step_name="closesubmit",
+        )
 
     return _post_submit_closesubmit
 

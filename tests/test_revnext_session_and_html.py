@@ -61,6 +61,22 @@ class HtmlDetectionTests(unittest.TestCase):
             )
         )
 
+    def test_error_suggests_login_page_excludes_generic_html(self):
+        from revnext.http import _error_suggests_login_page
+
+        self.assertTrue(
+            _error_suggests_login_page(
+                ValueError("Response body looks like HTML (login page); url=...")
+            )
+        )
+        self.assertFalse(
+            _error_suggests_login_page(
+                ValueError(
+                    "Response body looks like HTML (error/redirect page); url=..."
+                )
+            )
+        )
+
     def test_body_snippet_collapses_whitespace(self):
         self.assertEqual(_body_snippet(b"a\n  b\tc"), "a b c")
 
