@@ -3,14 +3,18 @@ Auto-login and session persistence for Revolution Next (*.revolutionnext.com.au)
 Login via j_spring_security_check; persist cookies to disk; validate before use and re-login if needed.
 """
 
+import json
 import re
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 
 from revnext.common import _common_headers, new_session
 from revnext.config import RevNextConfig
+from revnext.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _login_page_url(base_url: str) -> str:
@@ -95,6 +99,17 @@ def _is_login_page(html: str) -> bool:
     return "sign in to REVOLUTIONnext" in html or 'name="j_username"' in html
 
 
+def is_login_page_bytes(content: bytes) -> bool:
+    """True if response bytes look like the RevNext login HTML page."""
+    if not content:
+        return False
+    try:
+        text = content.lstrip()[:2000].decode("utf-8", errors="replace")
+    except (UnicodeDecodeError, AttributeError):
+        return False
+    return _is_login_page(text)
+
+
 def is_session_valid(session: requests.Session, base_url: str) -> bool:
     """
     Check if the session is still valid by GETting the app and ensuring we are not on the login page.
@@ -115,24 +130,39 @@ def _session_file_format(domain: str, session: requests.Session) -> dict:
     return {"domain": domain, "cookies": pairs}
 
 
-def _cookie_header(pairs: list[list[str]]) -> str:
-    return "; ".join(f"{n}={v}" for n, v in pairs)
+def _apply_cookies(session: requests.Session, pairs: list[list[str]]) -> None:
+    """Load cookies into the jar only (never a static Cookie header).
+
+    A static Cookie header overrides the jar and ignores Set-Cookie updates, so
+    mid-session rotations (and save_session after load) would keep dead cookies.
+    """
+    session.headers.pop("cookie", None)
+    session.headers.pop("Cookie", None)
+    for name, value in pairs:
+        if isinstance(name, str) and isinstance(value, str):
+            session.cookies.set(name, value)
 
 
 def save_session(session: requests.Session, base_url: str, path: Path) -> None:
     """Persist session cookies to a JSON file for the given base URL domain."""
-    from urllib.parse import urlparse
-
     parsed = urlparse(base_url)
     domain = parsed.netloc or parsed.path
     if not domain:
         raise ValueError(f"Invalid base_url: {base_url}")
     data = _session_file_format(domain, session)
     path.parent.mkdir(parents=True, exist_ok=True)
-    import json
-
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
+
+def invalidate_session_file(path: Path | None) -> None:
+    """Remove a persisted session file so the next login cannot reuse it."""
+    if path is None:
+        return
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning("Could not remove session file %s: %s", path, e)
 
 
 def load_session(
@@ -144,9 +174,6 @@ def load_session(
     Load a session from a previously saved JSON file. Returns None if file missing or invalid.
     The returned session carries a default timeout on every request.
     """
-    import json
-    from urllib.parse import urlparse
-
     if not path.exists():
         return None
     try:
@@ -166,8 +193,9 @@ def load_session(
         return None
     session = new_session(timeout)
     session.headers.update(_common_headers(base_url))
-    session.headers["cookie"] = _cookie_header(
-        [[n, v] for n, v in cookies if isinstance(n, str) and isinstance(v, str)]
+    _apply_cookies(
+        session,
+        [[n, v] for n, v in cookies if isinstance(n, str) and isinstance(v, str)],
     )
     return session
 
@@ -191,5 +219,17 @@ def get_or_create_session(
 
     session = login(base_url, config.username, config.password, config.timeout)
     save_session(session, base_url, path)
+    session.headers["x-service-object"] = service_object
+    return session
+
+
+def force_relogin(config: RevNextConfig, service_object: str) -> requests.Session:
+    """Drop any persisted session and log in again. Use when API responses look like login HTML."""
+    config.validate()
+    path = config.session_path or Path.cwd() / ".revnext-session.json"
+    invalidate_session_file(path)
+    logger.warning("Re-logging in to RevNext (session invalidated at %s).", path)
+    session = login(config.base_url, config.username, config.password, config.timeout)
+    save_session(session, config.base_url, path)
     session.headers["x-service-object"] = service_object
     return session

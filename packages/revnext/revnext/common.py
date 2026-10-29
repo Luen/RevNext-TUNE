@@ -91,6 +91,39 @@ def _looks_like_html(content: bytes) -> bool:
     return text.startswith("<!") or "<html" in text[:50]
 
 
+def _body_snippet(content: bytes | None, limit: int = 200) -> str:
+    """Short printable prefix of a response body for logs."""
+    if not content:
+        return ""
+    text = content.lstrip()[:limit].decode("utf-8", errors="replace")
+    return " ".join(text.split())
+
+
+def _response_error_context(response: requests.Response | None) -> str:
+    """URL / status / content-type / body snippet for failed API responses."""
+    if response is None:
+        return "no response"
+    content_type = response.headers.get("Content-Type", "")
+    return (
+        f"url={response.url!r} status={response.status_code} "
+        f"content-type={content_type!r} body={_body_snippet(response.content)!r}"
+    )
+
+
+def _error_suggests_relogin(error: BaseException) -> bool:
+    """True when a failure looks like an expired session / login HTML page."""
+    text = str(error).lower()
+    return any(
+        needle in text
+        for needle in (
+            "looks like html",
+            "login redirect",
+            "j_username",
+            "sign in to revolutionnext",
+        )
+    )
+
+
 def _common_headers(base_url: str) -> dict:
     """Build common request headers for the given base URL."""
     return {
@@ -121,16 +154,21 @@ def _parse_json_response(
     if content is None or len(content) < min_length:
         raise ValueError(
             f"Response body empty or too small (length {len(content) if content else 0}, "
-            f"expected at least {min_length} for valid JSON)"
+            f"expected at least {min_length} for valid JSON); {_response_error_context(response)}"
         )
     if _looks_like_html(content):
+        from revnext.session import is_login_page_bytes
+
+        kind = "login page" if is_login_page_bytes(content) else "error/redirect page"
         raise ValueError(
-            "Response body looks like HTML (error page, login redirect, or 502/503 page)"
+            f"Response body looks like HTML ({kind}); {_response_error_context(response)}"
         )
     try:
         return response.json()
     except json.JSONDecodeError as e:
-        raise ValueError(f"Response is not valid JSON: {e}") from e
+        raise ValueError(
+            f"Response is not valid JSON: {e}; {_response_error_context(response)}"
+        ) from e
 
 
 def _post_json_with_retry(
@@ -148,9 +186,11 @@ def _post_json_with_retry(
     After last attempt, raise ReportDownloadError.
     """
     last_error = None
+    last_response: requests.Response | None = None
     for attempt in range(1, max_attempts + 1):
         try:
             r = session.post(url, **kwargs)
+            last_response = r
             r.raise_for_status()
             return _parse_json_response(r)
         except (ValueError, json.JSONDecodeError) as e:
@@ -159,23 +199,26 @@ def _post_json_with_retry(
         except requests.RequestException as e:
             last_error = e
             reason = str(e)
+            last_response = getattr(e, "response", None)
         if attempt < max_attempts:
             prefix = f"[{report_label}] " if report_label else ""
             logger.warning(
-                "%s%s attempt %d of %d failed (%s); retrying in %.1fs.",
+                "%s%s attempt %d of %d failed (%s); retrying in %.1fs. %s",
                 prefix,
                 step_name,
                 attempt,
                 max_attempts,
                 reason,
                 retry_delay,
+                _response_error_context(last_response),
             )
             time.sleep(retry_delay)
         else:
             break
     label_suffix = f" [{report_label}]" if report_label else ""
     raise ReportDownloadError(
-        f"Report API returned invalid or non-JSON response after {max_attempts} attempt(s){label_suffix}: {last_error}"
+        f"Report API returned invalid or non-JSON response after {max_attempts} attempt(s)"
+        f"{label_suffix}: {last_error}"
     ) from last_error
 
 
@@ -194,38 +237,54 @@ def _get_content_with_retry(
     After last attempt, raise ReportDownloadError.
     """
     last_error = None
+    last_response: requests.Response | None = None
     for attempt in range(1, max_attempts + 1):
         try:
             r = session.get(url)
+            last_response = r
             r.raise_for_status()
             content = r.content or b""
             if len(content) < min_content_length:
                 raise ValueError(
-                    f"Response body empty or too small (length {len(content)})"
+                    f"Response body empty or too small (length {len(content)}); "
+                    f"{_response_error_context(r)}"
                 )
             if _looks_like_html(content):
-                raise ValueError("Response body looks like HTML (error/redirect page)")
+                from revnext.session import is_login_page_bytes
+
+                kind = (
+                    "login page"
+                    if is_login_page_bytes(content)
+                    else "error/redirect page"
+                )
+                raise ValueError(
+                    f"Response body looks like HTML ({kind}); {_response_error_context(r)}"
+                )
             return content
         except (ValueError, requests.RequestException) as e:
             last_error = e
             reason = str(e)
+            if isinstance(e, requests.RequestException):
+                last_response = getattr(e, "response", None)
         if attempt < max_attempts:
             prefix = f"[{report_label}] " if report_label else ""
             logger.warning(
-                "%s%s attempt %d of %d failed (%s); retrying in %.1fs.",
+                "%s%s attempt %d of %d failed (%s); retrying in %.1fs. %s",
                 prefix,
                 step_name,
                 attempt,
                 max_attempts,
                 reason,
                 retry_delay,
+                _response_error_context(last_response),
             )
             time.sleep(retry_delay)
         else:
             break
     label_suffix = f" [{report_label}]" if report_label else ""
     raise ReportDownloadError(
-        f"Report download returned invalid or empty content after {max_attempts} attempt(s){label_suffix}: {last_error}"
+        f"Report download returned invalid or empty content after {max_attempts} attempt(s)"
+        f"{label_suffix}: {last_error}"
     ) from last_error
 
 
@@ -306,6 +365,7 @@ def _run_report_flow_once(
     report_label: str | None = None,
     max_retries: int = 3,
     retry_delay: float = 5,
+    dismiss_notifications: bool = True,
 ) -> Path | bytes:
     """
     Single attempt: submit report task, poll until ready, loadData for download URL, then download CSV.
@@ -317,6 +377,7 @@ def _run_report_flow_once(
     max_retries: number of attempts per API request when response is empty, HTML, or invalid JSON (default 3).
     retry_delay: seconds to wait between retries (default 5). Raises ReportDownloadError after last attempt.
     """
+    prefix = f"[{report_label}] " if report_label else ""
     submit_url = f"{base_url}/next/rest/si/static/submitActivityTask"
     body = get_submit_body()
     submit_data = _post_json_with_retry(
@@ -359,10 +420,7 @@ def _run_report_flow_once(
     task_id = extract_task_id(submit_data)
     if not task_id:
         raise RuntimeError("Could not get taskID from submit response.")
-    if report_label:
-        print(f"[{report_label}] Task submitted: {task_id}")
-    else:
-        print(f"Task submitted: {task_id}")
+    logger.info("%sTask submitted: %s", prefix, task_id)
 
     if post_submit_hook:
         post_submit_hook(session)
@@ -394,15 +452,9 @@ def _run_report_flow_once(
             step_name="poll",
         )
         if is_poll_done(poll_data):
-            msg = "Report generation complete."
-            if report_label:
-                msg = f"[{report_label}] {msg}"
-            print(msg)
+            logger.info("%sReport generation complete.", prefix)
             break
-        msg = f"  Poll {i + 1}: still generating..."
-        if report_label:
-            msg = f"  [{report_label}] Poll {i + 1}: still generating..."
-        print(msg)
+        logger.info("%sPoll %d: still generating...", prefix, i + 1)
     else:
         raise RuntimeError("Timed out waiting for report.")
 
@@ -439,10 +491,7 @@ def _run_report_flow_once(
 
     if not response_url.startswith("http"):
         response_url = f"{base_url}/next/{response_url.lstrip('/')}"
-    if report_label:
-        print(f"[{report_label}] Download URL: {response_url}")
-    else:
-        print(f"Download URL: {response_url}")
+    logger.info("%sDownload URL: %s", prefix, response_url)
 
     content = _get_content_with_retry(
         session,
@@ -452,14 +501,16 @@ def _run_report_flow_once(
         report_label=report_label,
         step_name="download",
     )
+    if dismiss_notifications:
+        from revnext.notifications import dismiss_notifications_for_task
+
+        dismiss_notifications_for_task(session, base_url, task_id)
+
     if output_path is None:
         return content
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(content)
-    if report_label:
-        print(f"[{report_label}] Saved: {output_path}")
-    else:
-        print(f"Saved: {output_path}")
+    logger.info("%sSaved: %s", prefix, output_path)
     return output_path
 
 
@@ -478,16 +529,24 @@ def run_report_flow(
     retry_delay: float = 5,
     max_report_attempts: int = 2,
     report_retry_delay: float = 30,
+    config=None,
+    dismiss_notifications: bool = True,
 ) -> Path | bytes:
     """
     Submit report task, poll until ready, loadData for download URL, then download CSV.
     Retries the full flow up to max_report_attempts times on ReportDownloadError or RuntimeError.
+
+    When ``config`` is provided and a failure looks like login/HTML auth loss, the
+    session file is invalidated and a fresh login is used for the next full attempt.
     """
+    from revnext.session import force_relogin
+
     last_error: BaseException | None = None
+    current_session = session
     for attempt in range(1, max_report_attempts + 1):
         try:
             return _run_report_flow_once(
-                session,
+                current_session,
                 service_object,
                 activity_tab_id,
                 get_submit_body,
@@ -499,19 +558,32 @@ def run_report_flow(
                 report_label=report_label,
                 max_retries=max_retries,
                 retry_delay=retry_delay,
+                dismiss_notifications=dismiss_notifications,
             )
         except (ReportDownloadError, RuntimeError) as e:
             last_error = e
             if attempt < max_report_attempts:
                 prefix = f"[{report_label}] " if report_label else ""
-                logger.warning(
-                    "%sFull report attempt %d of %d failed (%s); retrying in %.1fs.",
-                    prefix,
-                    attempt,
-                    max_report_attempts,
-                    e,
-                    report_retry_delay,
-                )
+                if config is not None and _error_suggests_relogin(e):
+                    logger.warning(
+                        "%sFull report attempt %d of %d failed with auth/HTML response "
+                        "(%s); re-logging in and retrying in %.1fs.",
+                        prefix,
+                        attempt,
+                        max_report_attempts,
+                        e,
+                        report_retry_delay,
+                    )
+                    current_session = force_relogin(config, service_object)
+                else:
+                    logger.warning(
+                        "%sFull report attempt %d of %d failed (%s); retrying in %.1fs.",
+                        prefix,
+                        attempt,
+                        max_report_attempts,
+                        e,
+                        report_retry_delay,
+                    )
                 time.sleep(report_retry_delay)
             else:
                 break
