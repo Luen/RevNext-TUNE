@@ -2,8 +2,11 @@
 HTTP helpers for Revolution Next REST calls: timed sessions, JSON parse, retries.
 """
 
+from __future__ import annotations
+
 import json
 import time
+from collections.abc import Callable
 
 import requests
 
@@ -14,6 +17,15 @@ logger = get_logger(__name__)
 
 # Minimum response length to consider as valid JSON (e.g. "{}").
 MIN_JSON_BODY_LENGTH = 2
+
+
+class SessionSlot:
+    """Mutable holder so mid-step re-login can replace the active session."""
+
+    __slots__ = ("session",)
+
+    def __init__(self, session: requests.Session):
+        self.session = session
 
 
 class TimeoutSession(requests.Session):
@@ -96,6 +108,20 @@ def _error_suggests_relogin(error: BaseException) -> bool:
     )
 
 
+def _error_suggests_login_page(error: BaseException) -> bool:
+    """True when a failure is specifically a login page (not generic HTML/502)."""
+    text = str(error).lower()
+    return any(
+        needle in text
+        for needle in (
+            "login page",
+            "login redirect",
+            "j_username",
+            "sign in to revolutionnext",
+        )
+    )
+
+
 def _common_headers(base_url: str) -> dict:
     """Build common request headers for the given base URL."""
     return {
@@ -143,49 +169,99 @@ def _parse_json_response(
         ) from e
 
 
+def _maybe_relogin(
+    *,
+    error: BaseException,
+    attempt: int,
+    max_attempts: int,
+    report_label: str | None,
+    step_name: str,
+    retry_delay: float,
+    last_response: requests.Response | None,
+    slot: SessionSlot | None,
+    relogin: Callable[[], requests.Session] | None,
+) -> bool:
+    """
+    Log a retry warning. If the failure looks like login HTML and relogin is set,
+    replace ``slot.session`` before sleeping. Returns True when another attempt
+    should run.
+    """
+    if attempt >= max_attempts:
+        return False
+    prefix = f"[{report_label}] " if report_label else ""
+    did_relogin = False
+    if slot is not None and relogin is not None and _error_suggests_login_page(error):
+        logger.warning(
+            "%s%s attempt %d of %d failed with auth/HTML response (%s); "
+            "re-logging in and retrying in %.1fs. %s",
+            prefix,
+            step_name,
+            attempt,
+            max_attempts,
+            error,
+            retry_delay,
+            _response_error_context(last_response),
+        )
+        slot.session = relogin()
+        did_relogin = True
+    if not did_relogin:
+        logger.warning(
+            "%s%s attempt %d of %d failed (%s); retrying in %.1fs. %s",
+            prefix,
+            step_name,
+            attempt,
+            max_attempts,
+            error,
+            retry_delay,
+            _response_error_context(last_response),
+        )
+    time.sleep(retry_delay)
+    return True
+
+
 def _post_json_with_retry(
-    session: requests.Session,
+    session: requests.Session | SessionSlot,
     url: str,
     *,
     max_attempts: int,
     retry_delay: float,
     report_label: str | None,
     step_name: str,
+    relogin: Callable[[], requests.Session] | None = None,
     **kwargs,
 ) -> dict:
     """
     POST and parse JSON with retries. On empty/HTML/JSONDecodeError, log and retry.
-    After last attempt, raise ReportDownloadError.
+    When ``session`` is a SessionSlot and ``relogin`` is set, a login-page HTML
+    failure re-authenticates before the next attempt. After last attempt, raise
+    ReportDownloadError.
     """
+    slot = session if isinstance(session, SessionSlot) else None
     last_error = None
     last_response: requests.Response | None = None
     for attempt in range(1, max_attempts + 1):
+        active = slot.session if slot is not None else session
         try:
-            r = session.post(url, **kwargs)
+            r = active.post(url, **kwargs)
             last_response = r
             r.raise_for_status()
             return _parse_json_response(r)
         except (ValueError, json.JSONDecodeError) as e:
             last_error = e
-            reason = str(e)
         except requests.RequestException as e:
             last_error = e
-            reason = str(e)
             last_response = getattr(e, "response", None)
-        if attempt < max_attempts:
-            prefix = f"[{report_label}] " if report_label else ""
-            logger.warning(
-                "%s%s attempt %d of %d failed (%s); retrying in %.1fs. %s",
-                prefix,
-                step_name,
-                attempt,
-                max_attempts,
-                reason,
-                retry_delay,
-                _response_error_context(last_response),
-            )
-            time.sleep(retry_delay)
-        else:
+        if not _maybe_relogin(
+            error=last_error,
+            attempt=attempt,
+            max_attempts=max_attempts,
+            report_label=report_label,
+            step_name=step_name,
+            retry_delay=retry_delay,
+            last_response=last_response,
+            slot=slot,
+            relogin=relogin,
+        ):
             break
     label_suffix = f" [{report_label}]" if report_label else ""
     raise ReportDownloadError(
@@ -195,7 +271,7 @@ def _post_json_with_retry(
 
 
 def _get_content_with_retry(
-    session: requests.Session,
+    session: requests.Session | SessionSlot,
     url: str,
     *,
     max_attempts: int,
@@ -203,16 +279,21 @@ def _get_content_with_retry(
     report_label: str | None,
     step_name: str,
     min_content_length: int = 1,
+    relogin: Callable[[], requests.Session] | None = None,
 ) -> bytes:
     """
     GET report content (e.g. CSV) with retries. Retries when body is empty or looks like HTML.
-    After last attempt, raise ReportDownloadError.
+    When ``session`` is a SessionSlot and ``relogin`` is set, a login-page HTML
+    failure re-authenticates before the next attempt. After last attempt, raise
+    ReportDownloadError.
     """
+    slot = session if isinstance(session, SessionSlot) else None
     last_error = None
     last_response: requests.Response | None = None
     for attempt in range(1, max_attempts + 1):
+        active = slot.session if slot is not None else session
         try:
-            r = session.get(url)
+            r = active.get(url)
             last_response = r
             r.raise_for_status()
             content = r.content or b""
@@ -235,23 +316,19 @@ def _get_content_with_retry(
             return content
         except (ValueError, requests.RequestException) as e:
             last_error = e
-            reason = str(e)
             if isinstance(e, requests.RequestException):
                 last_response = getattr(e, "response", None)
-        if attempt < max_attempts:
-            prefix = f"[{report_label}] " if report_label else ""
-            logger.warning(
-                "%s%s attempt %d of %d failed (%s); retrying in %.1fs. %s",
-                prefix,
-                step_name,
-                attempt,
-                max_attempts,
-                reason,
-                retry_delay,
-                _response_error_context(last_response),
-            )
-            time.sleep(retry_delay)
-        else:
+        if not _maybe_relogin(
+            error=last_error,
+            attempt=attempt,
+            max_attempts=max_attempts,
+            report_label=report_label,
+            step_name=step_name,
+            retry_delay=retry_delay,
+            last_response=last_response,
+            slot=slot,
+            relogin=relogin,
+        ):
             break
     label_suffix = f" [{report_label}]" if report_label else ""
     raise ReportDownloadError(

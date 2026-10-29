@@ -18,7 +18,6 @@ from revnext.report_flow import (
 )
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsPriceListPR"
-ACTIVITY_TAB_ID = "N78b54de4_7cdc_43e0_9e42_71a49bec44f2"
 
 
 @dataclass
@@ -53,7 +52,8 @@ def _build_submit_body(params: PartsPriceListParams) -> dict:
         "_userContext_vg_coid": params.company,
         "_userContext_vg_divid": params.division,
         "_userContext_vg_dftdpt": params.department,
-        "activityTabId": ACTIVITY_TAB_ID,
+        # activityTabId is set by run_report_flow after opening a fresh tab
+        "activityTabId": "",
         "dataSets": [
             {
                 "name": "dsActivityTask",
@@ -233,20 +233,33 @@ def _post_submit_closesubmit_factory(
 ):
     """Return a hook that calls onChoose_btn_closesubmit (required for Parts Price List flow)."""
 
-    def _post_submit_closesubmit(session: requests.Session) -> None:
+    def _post_submit_closesubmit(
+        session: requests.Session, activity_tab_id: str
+    ) -> None:
+        from revnext.http import _post_json_with_retry
+
         url = f"{base_url}/next/rest/si/presenter/onChoose_btn_closesubmit"
         body = {
             "_userContext_vg_coid": company,
             "_userContext_vg_divid": division,
             "_userContext_vg_dftdpt": department,
-            "activityTabId": ACTIVITY_TAB_ID,
+            "activityTabId": activity_tab_id,
             "ctrlProp": [
                 {"name": "tt_params.submitopt", "prop": "SCREENVALUE", "value": "p"}
             ],
             "uiType": "ISC",
         }
-        r = session.post(url, json=body)
-        r.raise_for_status()
+        # Shared JSON/HTML retry path. After submit, report_flow aborts on
+        # login-page HTML so the full attempt can restart with a fresh tab.
+        _post_json_with_retry(
+            session,
+            url,
+            json=body,
+            max_attempts=3,
+            retry_delay=5,
+            report_label=None,
+            step_name="closesubmit",
+        )
 
     return _post_submit_closesubmit
 
@@ -372,7 +385,7 @@ def download_parts_price_list_report(
     return run_report_flow(
         session,
         SERVICE_OBJECT,
-        ACTIVITY_TAB_ID,
+        None,
         get_body,
         base_url,
         output_path=out_path,

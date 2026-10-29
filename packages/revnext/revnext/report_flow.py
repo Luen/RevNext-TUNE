@@ -2,7 +2,10 @@
 Submit → poll → loadData → download orchestration for Revolution Next reports.
 """
 
+from __future__ import annotations
+
 import time
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,6 +15,7 @@ import requests
 from revnext.config import RevNextConfig
 from revnext.http import (
     ReportDownloadError,
+    SessionSlot,
     _error_suggests_relogin,
     _get_content_with_retry,
     _post_json_with_retry,
@@ -38,6 +42,73 @@ def revnext_offset_text(tz: timezone = REVNEXT_TIMEZONE) -> str:
     sign = "-" if offset < timedelta(0) else "+"
     hours, remainder = divmod(int(abs(offset).total_seconds()), 3600)
     return f"{sign}{hours:02d}:{remainder // 60:02d}"
+
+
+def new_activity_tab_id() -> str:
+    """Client-generated Fluid tab id (``N`` + uuid with underscores), matching the browser."""
+    return "N" + str(uuid.uuid4()).replace("-", "_")
+
+
+def open_scheduler_activity(
+    session: requests.Session | SessionSlot,
+    base_url: str,
+    service_object: str,
+    *,
+    coid: str,
+    divid: str,
+    dftdpt: str,
+    activity_tab_id: str | None = None,
+    report_label: str | None = None,
+    max_retries: int = 3,
+    retry_delay: float = 5,
+    relogin: Callable[[], requests.Session] | None = None,
+) -> str:
+    """
+    Open a scheduler activity tab via ``loadActivityDef`` then ``loadData``.
+
+    Returns the activity tab id used (generated when ``activity_tab_id`` is None).
+    """
+    tab_id = activity_tab_id or new_activity_tab_id()
+    history_id = f"{tab_id},sched,{service_object}"
+    common = {
+        "parentActivity": None,
+        "historyID": history_id,
+        "tabID": tab_id,
+        "activityType": "sched",
+        "fluidService": service_object,
+        "uiType": "ISC",
+        "_userContext_vg_coid": coid,
+        "_userContext_vg_divid": divid,
+        "_userContext_vg_dftdpt": dftdpt,
+    }
+    _post_json_with_retry(
+        session,
+        f"{base_url}/next/rest/si/static/loadActivityDef",
+        json={**common, "activity": tab_id},
+        max_attempts=max_retries,
+        retry_delay=retry_delay,
+        report_label=report_label,
+        step_name="loadActivityDef",
+        relogin=relogin,
+    )
+    _post_json_with_retry(
+        session,
+        f"{base_url}/next/rest/si/static/loadData",
+        json={
+            **common,
+            "activityTabId": tab_id,
+            "loadMode": "EDIT",
+            "loadRowid": "dummy",
+        },
+        max_attempts=max_retries,
+        retry_delay=retry_delay,
+        report_label=report_label,
+        step_name="loadData (open activity)",
+        relogin=relogin,
+    )
+    prefix = f"[{report_label}] " if report_label else ""
+    logger.info("%sOpened activity tab %s for %s", prefix, tab_id, service_object)
+    return tab_id
 
 
 def get_or_create_session(
@@ -107,40 +178,85 @@ def _submit_errors_message(response_data: dict) -> str:
 def _run_report_flow_once(
     session: requests.Session,
     service_object: str,
-    activity_tab_id: str,
+    activity_tab_id: str | None,
     get_submit_body: Callable[[], dict],
     base_url: str,
     output_path: Path | None = None,
-    post_submit_hook: Callable[[requests.Session], None] | None = None,
+    post_submit_hook: (
+        Callable[[requests.Session | SessionSlot, str], None] | None
+    ) = None,
     max_polls: int = 60,
     poll_interval: float = 2,
     report_label: str | None = None,
     max_retries: int = 3,
     retry_delay: float = 5,
     dismiss_notifications: bool = True,
+    config: RevNextConfig | None = None,
+    open_activity: bool = True,
 ) -> Path | bytes:
     """
-    Single attempt: submit report task, poll until ready, loadData for download URL, then download CSV.
-    On submit: if response has ERROR, raises; if only WARNING and not success, retries once with stopOnWarning=False.
-    Optionally call post_submit_hook(session) after submit (e.g. onChoose_btn_closesubmit).
-    If output_path is set: save content to file and return the Path.
-    If output_path is None: return the report content as bytes (caller can save or load into pandas).
-    report_label: optional short label (e.g. "Parts Price List - 130") included in poll/complete messages.
-    max_retries: number of attempts per API request when response is empty, HTML, or invalid JSON (default 3).
-    retry_delay: seconds to wait between retries (default 5). Raises ReportDownloadError after last attempt.
+    Single attempt: optionally open the activity tab, submit, poll, loadData, download CSV.
+
+    When ``activity_tab_id`` is None a fresh client tab id is generated. When
+    ``open_activity`` is True, ``loadActivityDef`` + ``loadData`` run first (browser-like).
+    When ``config`` is set, login-page HTML before submit triggers mid-step re-login;
+    after submit it aborts so the full attempt can restart.
     """
-    _ = service_object
+    from revnext.session import force_relogin
+
+    slot = SessionSlot(session)
+    # After submit, mid-step re-login cannot safely continue the same task_id /
+    # activityTabId on a new Fluid session - abort so the full attempt restarts.
+    submitted = False
+    relogin: Callable[[], requests.Session] | None = None
+    if config is not None:
+
+        def relogin() -> requests.Session:
+            if submitted:
+                raise ReportDownloadError(
+                    "Session lost after submit (login HTML); restarting full "
+                    "report attempt with a fresh activity tab"
+                )
+            return force_relogin(config, service_object)
+
     prefix = f"[{report_label}] " if report_label else ""
+    probe = get_submit_body()
+    coid = probe.get("_userContext_vg_coid", "03")
+    divid = probe.get("_userContext_vg_divid", "1")
+    dftdpt = probe.get("_userContext_vg_dftdpt", "570")
+    tab_id = activity_tab_id or new_activity_tab_id()
+
+    if open_activity:
+        tab_id = open_scheduler_activity(
+            slot,
+            base_url,
+            service_object,
+            coid=coid,
+            divid=divid,
+            dftdpt=dftdpt,
+            activity_tab_id=tab_id,
+            report_label=report_label,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            relogin=relogin,
+        )
+
+    def get_body_with_tab() -> dict:
+        body = get_submit_body()
+        body["activityTabId"] = tab_id
+        return body
+
     submit_url = f"{base_url}/next/rest/si/static/submitActivityTask"
-    body = get_submit_body()
+    body = get_body_with_tab()
     submit_data = _post_json_with_retry(
-        session,
+        slot,
         submit_url,
         json=body,
         max_attempts=max_retries,
         retry_delay=retry_delay,
         report_label=report_label,
         step_name="submitActivityTask",
+        relogin=relogin,
     )
 
     if not submit_data.get("submittedSuccess"):
@@ -150,16 +266,17 @@ def _run_report_flow_once(
                 f"submitActivityTask failed: {_submit_errors_message(submit_data)}"
             )
         if warning_only:
-            body = get_submit_body()
+            body = get_body_with_tab()
             body["stopOnWarning"] = False
             submit_data = _post_json_with_retry(
-                session,
+                slot,
                 submit_url,
                 json=body,
                 max_attempts=max_retries,
                 retry_delay=retry_delay,
                 report_label=report_label,
                 step_name="submitActivityTask (warnings retry)",
+                relogin=relogin,
             )
             if not submit_data.get("submittedSuccess"):
                 raise RuntimeError(
@@ -174,20 +291,17 @@ def _run_report_flow_once(
     if not task_id:
         raise RuntimeError("Could not get taskID from submit response.")
     logger.info("%sTask submitted: %s", prefix, task_id)
+    submitted = True
 
     if post_submit_hook:
-        post_submit_hook(session)
-
-    coid = body.get("_userContext_vg_coid", "03")
-    divid = body.get("_userContext_vg_divid", "1")
-    dftdpt = body.get("_userContext_vg_dftdpt", "570")
+        post_submit_hook(slot, tab_id)
 
     poll_url = f"{base_url}/next/rest/si/presenter/autoPollResponse"
     poll_body = {
         "_userContext_vg_coid": coid,
         "_userContext_vg_divid": divid,
         "_userContext_vg_dftdpt": dftdpt,
-        "activityTabId": activity_tab_id,
+        "activityTabId": tab_id,
         "ctrlProp": [
             {"name": "ttActivityTask.taskID", "prop": "SCREENVALUE", "value": task_id}
         ],
@@ -196,13 +310,14 @@ def _run_report_flow_once(
     for i in range(max_polls):
         time.sleep(poll_interval)
         poll_data = _post_json_with_retry(
-            session,
+            slot,
             poll_url,
             json=poll_body,
             max_attempts=max_retries,
             retry_delay=retry_delay,
             report_label=report_label,
             step_name="poll",
+            relogin=relogin,
         )
         if is_poll_done(poll_data):
             logger.info("%sReport generation complete.", prefix)
@@ -224,18 +339,19 @@ def _run_report_flow_once(
         "_userContext_vg_coid": coid,
         "_userContext_vg_divid": divid,
         "_userContext_vg_dftdpt": dftdpt,
-        "activityTabId": activity_tab_id,
+        "activityTabId": tab_id,
         "loadMode": "EDIT",
         "loadRowid": "dummy",
     }
     load_data = _post_json_with_retry(
-        session,
+        slot,
         load_url,
         json=load_body,
         max_attempts=max_retries,
         retry_delay=retry_delay,
         report_label=report_label,
         step_name="loadData",
+        relogin=relogin,
     )
 
     response_url = get_response_url_from_load_data(load_data)
@@ -247,17 +363,18 @@ def _run_report_flow_once(
     logger.info("%sDownload URL: %s", prefix, response_url)
 
     content = _get_content_with_retry(
-        session,
+        slot,
         response_url,
         max_attempts=max_retries,
         retry_delay=retry_delay,
         report_label=report_label,
         step_name="download",
+        relogin=relogin,
     )
     if dismiss_notifications:
         from revnext.notifications import dismiss_notifications_for_task
 
-        dismiss_notifications_for_task(session, base_url, task_id)
+        dismiss_notifications_for_task(slot.session, base_url, task_id)
 
     if output_path is None:
         return content
@@ -270,11 +387,13 @@ def _run_report_flow_once(
 def run_report_flow(
     session: requests.Session,
     service_object: str,
-    activity_tab_id: str,
+    activity_tab_id: str | None,
     get_submit_body: Callable[[], dict],
     base_url: str,
     output_path: Path | None = None,
-    post_submit_hook: Callable[[requests.Session], None] | None = None,
+    post_submit_hook: (
+        Callable[[requests.Session | SessionSlot, str], None] | None
+    ) = None,
     max_polls: int = 60,
     poll_interval: float = 2,
     report_label: str | None = None,
@@ -282,15 +401,18 @@ def run_report_flow(
     retry_delay: float = 5,
     max_report_attempts: int = 2,
     report_retry_delay: float = 30,
-    config=None,
+    config: RevNextConfig | None = None,
     dismiss_notifications: bool = True,
+    open_activity: bool = True,
 ) -> Path | bytes:
     """
     Submit report task, poll until ready, loadData for download URL, then download CSV.
     Retries the full flow up to max_report_attempts times on ReportDownloadError or RuntimeError.
 
-    When ``config`` is provided and a failure looks like login/HTML auth loss, the
-    session file is invalidated and a fresh login is used for the next full attempt.
+    When ``activity_tab_id`` is None, a fresh Fluid tab id is generated each attempt.
+    When ``open_activity`` is True (default), the activity is opened via loadActivityDef.
+    When ``config`` is provided, login HTML triggers mid-step re-login during retries and
+    a full-attempt re-login between report attempts.
     """
     from revnext.session import force_relogin
 
@@ -312,6 +434,8 @@ def run_report_flow(
                 max_retries=max_retries,
                 retry_delay=retry_delay,
                 dismiss_notifications=dismiss_notifications,
+                config=config,
+                open_activity=open_activity,
             )
         except (ReportDownloadError, RuntimeError) as e:
             last_error = e
