@@ -282,7 +282,7 @@ def download_all_reports_parallel(
 | `revnext` | Top-level package; exports config, logger, report download functions, report params |
 | `revnext.config` | `RevNextConfig`, `get_revnext_base_url_from_env` |
 | `revnext.http` | `TimeoutSession`, `new_session`, JSON/retry helpers, `ReportDownloadError` |
-| `revnext.report_flow` | `get_or_create_session`, `run_report_flow`, timezone helpers |
+| `revnext.report_flow` | `get_or_create_session`, `run_report_flow`, `open_scheduler_activity`, `new_activity_tab_id`, timezone helpers |
 | `revnext.common` | Re-exports from `http` + `report_flow` (prefer the modules above) |
 | `revnext.session` | Login, cookie-jar session persistence, `force_relogin` |
 | `revnext.notifications` | `list_notifications`, `dismiss_notifications_for_task`, `dismiss_report_notifications` |
