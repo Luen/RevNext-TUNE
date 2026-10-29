@@ -18,7 +18,6 @@ from revnext.report_flow import (
 )
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsPriceListPR"
-ACTIVITY_TAB_ID = "N78b54de4_7cdc_43e0_9e42_71a49bec44f2"
 
 
 @dataclass
@@ -53,7 +52,8 @@ def _build_submit_body(params: PartsPriceListParams) -> dict:
         "_userContext_vg_coid": params.company,
         "_userContext_vg_divid": params.division,
         "_userContext_vg_dftdpt": params.department,
-        "activityTabId": ACTIVITY_TAB_ID,
+        # activityTabId is set by run_report_flow after opening a fresh tab
+        "activityTabId": "",
         "dataSets": [
             {
                 "name": "dsActivityTask",
@@ -233,13 +233,15 @@ def _post_submit_closesubmit_factory(
 ):
     """Return a hook that calls onChoose_btn_closesubmit (required for Parts Price List flow)."""
 
-    def _post_submit_closesubmit(session: requests.Session) -> None:
+    def _post_submit_closesubmit(
+        session: requests.Session, activity_tab_id: str
+    ) -> None:
         url = f"{base_url}/next/rest/si/presenter/onChoose_btn_closesubmit"
         body = {
             "_userContext_vg_coid": company,
             "_userContext_vg_divid": division,
             "_userContext_vg_dftdpt": department,
-            "activityTabId": ACTIVITY_TAB_ID,
+            "activityTabId": activity_tab_id,
             "ctrlProp": [
                 {"name": "tt_params.submitopt", "prop": "SCREENVALUE", "value": "p"}
             ],
@@ -372,7 +374,7 @@ def download_parts_price_list_report(
     return run_report_flow(
         session,
         SERVICE_OBJECT,
-        ACTIVITY_TAB_ID,
+        None,
         get_body,
         base_url,
         output_path=out_path,

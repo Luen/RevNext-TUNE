@@ -131,5 +131,59 @@ class NotificationParseTests(unittest.TestCase):
         self.assertEqual(rows[0]["x_rowid"], "AAAA")
 
 
+class ActivityTabAndMidStepReloginTests(unittest.TestCase):
+    def test_new_activity_tab_id_matches_browser_shape(self):
+        from revnext.report_flow import new_activity_tab_id
+
+        tab_id = new_activity_tab_id()
+        self.assertTrue(tab_id.startswith("N"))
+        self.assertNotIn("-", tab_id)
+        self.assertEqual(tab_id.count("_"), 4)
+        self.assertNotEqual(new_activity_tab_id(), tab_id)
+
+    def test_post_retry_relogins_on_login_html(self):
+        from revnext.http import SessionSlot, _post_json_with_retry
+
+        first = MagicMock()
+        first.post.return_value = MagicMock(
+            content=b"<!DOCTYPE html><html>sign in to REVOLUTIONnext j_username</html>",
+            url="https://example.test/submit",
+            status_code=200,
+            headers={"Content-Type": "text/html"},
+            raise_for_status=MagicMock(),
+        )
+        second = MagicMock()
+        ok = MagicMock(
+            content=b'{"ok": true}',
+            url="https://example.test/submit",
+            status_code=201,
+            headers={"Content-Type": "application/json"},
+            raise_for_status=MagicMock(),
+        )
+        ok.json.return_value = {"ok": True}
+        second.post.return_value = ok
+
+        slot = SessionSlot(first)
+        calls = {"n": 0}
+
+        def relogin():
+            calls["n"] += 1
+            return second
+
+        result = _post_json_with_retry(
+            slot,
+            "https://example.test/submit",
+            max_attempts=3,
+            retry_delay=0,
+            report_label="test",
+            step_name="submit",
+            relogin=relogin,
+            json={},
+        )
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(calls["n"], 1)
+        self.assertIs(slot.session, second)
+
+
 if __name__ == "__main__":
     unittest.main()

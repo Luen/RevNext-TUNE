@@ -16,7 +16,6 @@ from revnext.report_flow import (
 )
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsByBinLocationPR"
-ACTIVITY_TAB_ID = "Nce9eac79_528b_4fc4_a294_b055a6dde16b"
 
 
 @dataclass
@@ -59,7 +58,8 @@ def _build_submit_body(params: PartsByBinLocationParams) -> dict:
         "_userContext_vg_coid": params.company,
         "_userContext_vg_divid": params.division,
         "_userContext_vg_dftdpt": params.department,
-        "activityTabId": ACTIVITY_TAB_ID,
+        # activityTabId is set by run_report_flow after opening a fresh tab
+        "activityTabId": "",
         "dataSets": [
             {
                 "name": "dsActivityTask",
@@ -374,7 +374,7 @@ def download_parts_by_bin_report(
     return run_report_flow(
         session,
         SERVICE_OBJECT,
-        ACTIVITY_TAB_ID,
+        None,
         get_body,
         base_url,
         output_path=out_path,
