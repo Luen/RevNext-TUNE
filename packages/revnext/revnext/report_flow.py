@@ -182,7 +182,9 @@ def _run_report_flow_once(
     get_submit_body: Callable[[], dict],
     base_url: str,
     output_path: Path | None = None,
-    post_submit_hook: Callable[[requests.Session, str], None] | None = None,
+    post_submit_hook: (
+        Callable[[requests.Session | SessionSlot, str], None] | None
+    ) = None,
     max_polls: int = 60,
     poll_interval: float = 2,
     report_label: str | None = None,
@@ -197,15 +199,24 @@ def _run_report_flow_once(
 
     When ``activity_tab_id`` is None a fresh client tab id is generated. When
     ``open_activity`` is True, ``loadActivityDef`` + ``loadData`` run first (browser-like).
-    When ``config`` is set, login-page HTML during a step triggers mid-step re-login.
+    When ``config`` is set, login-page HTML before submit triggers mid-step re-login;
+    after submit it aborts so the full attempt can restart.
     """
     from revnext.session import force_relogin
 
     slot = SessionSlot(session)
+    # After submit, mid-step re-login cannot safely continue the same task_id /
+    # activityTabId on a new Fluid session - abort so the full attempt restarts.
+    submitted = False
     relogin: Callable[[], requests.Session] | None = None
     if config is not None:
 
         def relogin() -> requests.Session:
+            if submitted:
+                raise ReportDownloadError(
+                    "Session lost after submit (login HTML); restarting full "
+                    "report attempt with a fresh activity tab"
+                )
             return force_relogin(config, service_object)
 
     prefix = f"[{report_label}] " if report_label else ""
@@ -280,9 +291,10 @@ def _run_report_flow_once(
     if not task_id:
         raise RuntimeError("Could not get taskID from submit response.")
     logger.info("%sTask submitted: %s", prefix, task_id)
+    submitted = True
 
     if post_submit_hook:
-        post_submit_hook(slot.session, tab_id)
+        post_submit_hook(slot, tab_id)
 
     poll_url = f"{base_url}/next/rest/si/presenter/autoPollResponse"
     poll_body = {
@@ -379,7 +391,9 @@ def run_report_flow(
     get_submit_body: Callable[[], dict],
     base_url: str,
     output_path: Path | None = None,
-    post_submit_hook: Callable[[requests.Session, str], None] | None = None,
+    post_submit_hook: (
+        Callable[[requests.Session | SessionSlot, str], None] | None
+    ) = None,
     max_polls: int = 60,
     poll_interval: float = 2,
     report_label: str | None = None,

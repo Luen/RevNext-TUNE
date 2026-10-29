@@ -108,6 +108,20 @@ def _error_suggests_relogin(error: BaseException) -> bool:
     )
 
 
+def _error_suggests_login_page(error: BaseException) -> bool:
+    """True when a failure is specifically a login page (not generic HTML/502)."""
+    text = str(error).lower()
+    return any(
+        needle in text
+        for needle in (
+            "login page",
+            "login redirect",
+            "j_username",
+            "sign in to revolutionnext",
+        )
+    )
+
+
 def _common_headers(base_url: str) -> dict:
     """Build common request headers for the given base URL."""
     return {
@@ -176,7 +190,7 @@ def _maybe_relogin(
         return False
     prefix = f"[{report_label}] " if report_label else ""
     did_relogin = False
-    if slot is not None and relogin is not None and _error_suggests_relogin(error):
+    if slot is not None and relogin is not None and _error_suggests_login_page(error):
         logger.warning(
             "%s%s attempt %d of %d failed with auth/HTML response (%s); "
             "re-logging in and retrying in %.1fs. %s",
