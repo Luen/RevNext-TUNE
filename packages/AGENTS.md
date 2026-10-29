@@ -46,7 +46,7 @@ Applies when working under `packages/` (combined with the root `AGENTS.md`).
 ## Package conventions
 
 - **tune_dms:** Config in `config.py`; launcher in `launcher.py`; images in `tune_dms/images/`. Dependencies: pyautogui only.
-- **revnext:** Config in `config.py`; shared HTTP/session logic in `common.py`; report-specific modules per report. Dependency: `requests` only.
+- **revnext:** Config in `config.py`; HTTP helpers in `http.py`; report submit/poll/download in `report_flow.py`; `common.py` re-exports those for older imports; report-specific modules per report. Dependency: `requests` only.
 - Public API via each package’s `__init__.py`. Library must work without a .env file; use optional `_load_dotenv_if_available()`.
 
 ## Adding features

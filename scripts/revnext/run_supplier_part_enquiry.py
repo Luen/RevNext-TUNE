@@ -9,13 +9,13 @@ Requires REVNEXT_URL, REVNEXT_USERNAME, REVNEXT_PASSWORD in env (or .env).
 
 import sys
 
-from revnext.common import get_or_create_session
 from revnext.config import RevNextConfig
 from revnext.parts.enquiries.supplier_part import (
     GET_RESULTS_SERVICE,
     load_supplier_part,
     search_supplier_parts,
 )
+from revnext.report_flow import get_or_create_session
 
 
 def main() -> bool:
