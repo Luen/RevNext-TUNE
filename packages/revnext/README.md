@@ -283,7 +283,7 @@ def download_all_reports_parallel(
 | `revnext.config` | `RevNextConfig`, `get_revnext_base_url_from_env` |
 | `revnext.common` | `get_or_create_session`, `run_report_flow`, `ReportDownloadError` |
 | `revnext.session` | Login, cookie-jar session persistence, `force_relogin` |
-| `revnext.notifications` | `list_notifications`, `dismiss_notifications_for_task` |
+| `revnext.notifications` | `list_notifications`, `dismiss_notifications_for_task`, `dismiss_report_notifications` |
 | `revnext.logger` | `get_logger`, `set_logger` |
 | `revnext.parts` | Re-exports reports and supplier part enquiry |
 | `revnext.parts.reports` | `download_parts_by_bin_report`, `download_parts_price_list_report`, `PartsByBinLocationParams`, `PartsPriceListParams` |

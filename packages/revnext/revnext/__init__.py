@@ -7,6 +7,7 @@ from revnext.config import RevNextConfig, get_revnext_base_url_from_env
 from revnext.logger import get_logger, set_logger
 from revnext.notifications import (
     dismiss_notifications_for_task,
+    dismiss_report_notifications,
     list_notifications,
 )
 from revnext.parts.reports import (
@@ -22,6 +23,7 @@ __all__ = [
     "ReportDownloadError",
     "RevNextConfig",
     "dismiss_notifications_for_task",
+    "dismiss_report_notifications",
     "download_parts_by_bin_report",
     "download_parts_price_list_report",
     "get_logger",
@@ -30,4 +32,4 @@ __all__ = [
     "set_logger",
 ]
 
-__version__ = "0.1.12"
+__version__ = "0.1.13"
