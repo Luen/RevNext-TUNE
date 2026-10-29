@@ -57,7 +57,7 @@ jobs:
             # a Trusted Publisher, so they stay off while this uses a token.
             - name: Publish to PyPI
               if: steps.check.outputs.exists == 'false'
-              uses: pypa/gh-action-pypi-publish@v1.14.2
+              uses: pypa/gh-action-pypi-publish@v1.14.3
               with:
                   packages-dir: packages/tune_dms/dist
                   password: ${{ secrets.PYPI_API_TOKEN }}
