@@ -385,6 +385,7 @@ def download_parts_by_bin_report(
         retry_delay=retry_delay,
         max_report_attempts=max_report_attempts,
         report_retry_delay=report_retry_delay,
+        config=config,
     )
 
 

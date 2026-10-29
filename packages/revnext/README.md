@@ -282,6 +282,8 @@ def download_all_reports_parallel(
 | `revnext` | Top-level package; exports config, logger, report download functions, report params |
 | `revnext.config` | `RevNextConfig`, `get_revnext_base_url_from_env` |
 | `revnext.common` | `get_or_create_session`, `run_report_flow`, `ReportDownloadError` |
+| `revnext.session` | Login, cookie-jar session persistence, `force_relogin` |
+| `revnext.notifications` | `list_notifications`, `dismiss_notifications_for_task` |
 | `revnext.logger` | `get_logger`, `set_logger` |
 | `revnext.parts` | Re-exports reports and supplier part enquiry |
 | `revnext.parts.reports` | `download_parts_by_bin_report`, `download_parts_price_list_report`, `PartsByBinLocationParams`, `PartsPriceListParams` |
@@ -321,7 +323,9 @@ Both report functions accept:
 - `report_label` for log messages
 - `max_retries` (default 3), `retry_delay` (default 5 seconds) for transient API failures
 
-On transient failures (empty/HTML/invalid JSON response), the library retries and raises `ReportDownloadError` after all retries are exhausted.
+On transient failures (empty/HTML/invalid JSON response), the library retries and raises `ReportDownloadError` after all retries are exhausted. Retries log URL, HTTP status, content-type, and a short body snippet. When the failure looks like a login page and `config` was passed into `run_report_flow`, the next full attempt re-logs in after invalidating the session file.
+
+After a successful CSV download, matching SmartCenter “report ready” notifications for that `taskID` are dismissed via `dismiss_notifications_for_task` (best-effort; failures are logged and do not fail the download). The existing unread backlog is not bulk-cleared.
 
 ### Enquiry session and services
 
