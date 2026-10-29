@@ -9,13 +9,13 @@ from typing import Literal
 
 import requests
 
-from revnext.common import (
+from revnext.config import RevNextConfig
+from revnext.report_flow import (
     get_or_create_session,
     revnext_now,
     revnext_offset_text,
     run_report_flow,
 )
-from revnext.config import RevNextConfig
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsPriceListPR"
 ACTIVITY_TAB_ID = "N78b54de4_7cdc_43e0_9e42_71a49bec44f2"

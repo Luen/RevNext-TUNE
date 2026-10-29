@@ -166,8 +166,8 @@ def load_part_tabs(
 
 if __name__ == "__main__":
     """Example: search part, show results for user to select, then load part_suppliers for chosen row."""
-    from revnext.common import get_or_create_session
     from revnext.config import RevNextConfig
+    from revnext.report_flow import get_or_create_session
 
     config = RevNextConfig.from_env()
     session = get_or_create_session(config, GET_RESULTS_SERVICE)

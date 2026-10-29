@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from revnext.common import (
+from revnext.config import RevNextConfig
+from revnext.report_flow import (
     get_or_create_session,
     revnext_now,
     revnext_offset_text,
     run_report_flow,
 )
-from revnext.config import RevNextConfig
 
 SERVICE_OBJECT = "Revolution.Activity.IM.RPT.PartsByBinLocationPR"
 ACTIVITY_TAB_ID = "Nce9eac79_528b_4fc4_a294_b055a6dde16b"

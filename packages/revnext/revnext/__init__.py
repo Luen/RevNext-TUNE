@@ -2,8 +2,8 @@
 Revolution Next (*.revolutionnext.com.au) report downloads via REST API.
 """
 
-from revnext.common import ReportDownloadError
 from revnext.config import RevNextConfig, get_revnext_base_url_from_env
+from revnext.http import ReportDownloadError
 from revnext.logger import get_logger, set_logger
 from revnext.notifications import (
     dismiss_notifications_for_task,

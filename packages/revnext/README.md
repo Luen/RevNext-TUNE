@@ -281,7 +281,9 @@ def download_all_reports_parallel(
 |------|--------|
 | `revnext` | Top-level package; exports config, logger, report download functions, report params |
 | `revnext.config` | `RevNextConfig`, `get_revnext_base_url_from_env` |
-| `revnext.common` | `get_or_create_session`, `run_report_flow`, `ReportDownloadError` |
+| `revnext.http` | `TimeoutSession`, `new_session`, JSON/retry helpers, `ReportDownloadError` |
+| `revnext.report_flow` | `get_or_create_session`, `run_report_flow`, timezone helpers |
+| `revnext.common` | Re-exports from `http` + `report_flow` (prefer the modules above) |
 | `revnext.session` | Login, cookie-jar session persistence, `force_relogin` |
 | `revnext.notifications` | `list_notifications`, `dismiss_notifications_for_task`, `dismiss_report_notifications` |
 | `revnext.logger` | `get_logger`, `set_logger` |
@@ -297,9 +299,9 @@ def download_all_reports_parallel(
 
 - **Config:** `RevNextConfig`, `RevNextConfig.from_env()`, `get_revnext_base_url_from_env`
 - **Logging:** `set_logger(logger)`, `get_logger(name)`
-- **Session:** `get_or_create_session(config, service_object)` (from `revnext.common`)
+- **Session:** `get_or_create_session(config, service_object)` (from `revnext.report_flow`)
 - **Reports:** `download_parts_by_bin_report()`, `download_parts_price_list_report()`; params: `PartsByBinLocationParams`, `PartsPriceListParams`
-- **Errors:** `ReportDownloadError` (from `revnext.common` or `revnext`)
+- **Errors:** `ReportDownloadError` (from `revnext.http` or `revnext`)
 - **Supplier Part Enquiry:** `search_supplier_parts`, `load_supplier_part` (from `revnext.parts` or `revnext.parts.enquiries.supplier_part`)
 - **Part General Enquiry:** `search_part_general`, `load_part_tab`, `load_part_tabs`, `TAB_REGISTRY`, `GET_RESULTS_SERVICE` (from `revnext.parts.enquiries.part_general_enquiry`)
 

@@ -10,8 +10,8 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
-from revnext.common import _common_headers, new_session
 from revnext.config import RevNextConfig
+from revnext.http import _common_headers, new_session
 from revnext.logger import get_logger
 
 logger = get_logger(__name__)

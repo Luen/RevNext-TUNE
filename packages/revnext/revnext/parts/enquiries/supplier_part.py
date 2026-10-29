@@ -100,8 +100,8 @@ def load_supplier_part(
 
 if __name__ == "__main__":
     """Example: search part PZQ6160670, then load the row for supplier 7001 (Toyota)."""
-    from revnext.common import get_or_create_session
     from revnext.config import RevNextConfig
+    from revnext.report_flow import get_or_create_session
 
     config = RevNextConfig.from_env()
     session = get_or_create_session(config, GET_RESULTS_SERVICE)
