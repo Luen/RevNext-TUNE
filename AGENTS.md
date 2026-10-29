@@ -2,6 +2,27 @@
 
 Agent instructions for the RevNext-TUNE monorepo. Nested `packages/AGENTS.md` adds Python package conventions when working under `packages/`.
 
+## Living document
+
+`AGENTS.md` is meant for **future agents to edit**. Treat it as shared project memory, not a frozen policy dump:
+
+- Update it when you learn a durable convention, fix outdated guidance, or leave a short note that will help the next session
+- Prefer improving and tightening existing sections over appending duplicates
+- Remove redundant, stale, or contradictory info in the same change that discovers it
+- Keep the root file lean; put package-specific conventions in `packages/AGENTS.md` and deep usage detail in package READMEs
+- Keep related docs (root `README.md`, `packages/*/README.md`) aligned when behaviour or entry points change
+
+### Open GitHub issues as you go
+
+When you notice something that should not be lost in chat history, **open a GitHub issue** on this repo (use `gh issue create`) for:
+
+- Bugs and incorrect behaviour
+- Areas that should be refactored
+- Improvements and hardening ideas
+- Product or ops ideas worth tracking
+
+Do this even if you are fixing something else in the same session. Prefer one focused issue per theme; link related PRs. Skip issues for trivial typos you already fixed in the same change.
+
 ## Project structure
 
 ### Two independent packages only
