@@ -47,7 +47,7 @@ REVNEXT_USERNAME=your_user_id
 REVNEXT_PASSWORD=your_password
 ```
 
-The first run logs in via the web form (CSRF + `j_spring_security_check`) and saves the session to `REVNEXT_SESSION_PATH` or `.revnext-session.json`. Later runs load that file, check that the session is still valid, and only re-login if it has expired.
+The first run logs in via the web form (CSRF + `j_spring_security_check`) and saves the session to `REVNEXT_SESSION_PATH` or `.revnext-session.json`. Later runs load that file, check that the session is still valid, and only re-login if it has expired. Login and session-validation GETs bypass `requests-cache` when that package is installed (so a cached app shell cannot starve CSRF extraction). Do not HTTP-cache `*.revolutionnext.com.au` in calling apps.
 
 ## Custom logger
 

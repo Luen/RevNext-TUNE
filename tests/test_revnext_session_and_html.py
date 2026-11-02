@@ -24,10 +24,28 @@ from revnext.common import (
 from revnext.notifications import _notifications_from_response
 from revnext.session import (
     _apply_cookies,
+    _extract_csrf,
     is_login_page_bytes,
     load_session,
     save_session,
 )
+
+# Realistic login.jsp: long <head> then form (CSRF / j_username past the old 2KB scan).
+_LONG_HEAD = "x" * 2500
+_REALISTIC_LOGIN_HTML = f"""<!DOCTYPE HTML>
+<head><title>REVOLUTIONnext SmartCenter</title>
+<meta name="padding" content="{_LONG_HEAD}" />
+</head>
+<body>
+<form role="form" name="Login" action="j_spring_security_check" method="post">
+<input type="hidden" value='11f5c304-8530-4182-b133-0b233c6f6853' name="CSRFToken">
+<h4>Use the form below to sign in to REVOLUTIONnext</h4>
+<input name="j_username" id="userField" type="text" value="">
+<input name="j_password" id="passwordField" type="password" value="">
+</form>
+</body>
+</html>
+"""
 
 
 class HtmlDetectionTests(unittest.TestCase):
@@ -40,6 +58,38 @@ class HtmlDetectionTests(unittest.TestCase):
     def test_login_page_bytes(self):
         body = b"<html><body>Please sign in to REVOLUTIONnext</body></html>"
         self.assertTrue(is_login_page_bytes(body))
+
+    def test_login_page_bytes_with_long_head(self):
+        body = _REALISTIC_LOGIN_HTML.encode("utf-8")
+        self.assertGreater(body.find(b"CSRFToken"), 2000)
+        self.assertTrue(is_login_page_bytes(body))
+
+    def test_extract_csrf_value_before_name_single_quotes(self):
+        html = (
+            "<input type=\"hidden\" value='11f5c304-8530-4182-b133-0b233c6f6853' "
+            'name="CSRFToken">'
+        )
+        self.assertEqual(_extract_csrf(html), "11f5c304-8530-4182-b133-0b233c6f6853")
+
+    def test_extract_csrf_name_before_value(self):
+        html = '<input type="hidden" name="CSRFToken" value="abc-def">'
+        self.assertEqual(_extract_csrf(html), "abc-def")
+
+    def test_extract_csrf_from_realistic_login_html(self):
+        self.assertEqual(
+            _extract_csrf(_REALISTIC_LOGIN_HTML),
+            "11f5c304-8530-4182-b133-0b233c6f6853",
+        )
+
+    def test_parse_json_classifies_realistic_login_as_login_page(self):
+        response = MagicMock()
+        response.content = _REALISTIC_LOGIN_HTML.encode("utf-8")
+        response.url = "https://example.test/next/static/auth/login.jsp"
+        response.status_code = 200
+        response.headers = {"Content-Type": "text/html;charset=UTF-8"}
+        with self.assertRaises(ValueError) as ctx:
+            _parse_json_response(response)
+        self.assertIn("login page", str(ctx.exception))
 
     def test_parse_json_includes_context_for_html(self):
         response = MagicMock()

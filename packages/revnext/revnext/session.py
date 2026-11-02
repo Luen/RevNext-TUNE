@@ -3,18 +3,34 @@ Auto-login and session persistence for Revolution Next (*.revolutionnext.com.au)
 Login via j_spring_security_check; persist cookies to disk; validate before use and re-login if needed.
 """
 
+from __future__ import annotations
+
 import json
 import re
+from contextlib import nullcontext
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
 
 from revnext.config import RevNextConfig
-from revnext.http import _common_headers, new_session
+from revnext.http import _body_snippet, _common_headers, new_session
 from revnext.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Login form markers sit after a long <head>; 2KB was too small and misclassified login.jsp.
+_LOGIN_PAGE_SCAN_BYTES = 65536
+
+
+def _requests_cache_disabled():
+    """Disable requests-cache for auth GETs when that package is installed (optional)."""
+    try:
+        from requests_cache import disabled
+
+        return disabled()
+    except ImportError:
+        return nullcontext()
 
 
 def _login_page_url(base_url: str) -> str:
@@ -23,6 +39,20 @@ def _login_page_url(base_url: str) -> str:
 
 def _security_check_url(base_url: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", "next/j_spring_security_check")
+
+
+def _login_browser_headers(base_url: str) -> dict[str, str]:
+    """Headers for the HTML login form (not the JSON API)."""
+    return {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-AU,en-US;q=0.9,en-GB;q=0.8,en;q=0.7",
+        "origin": base_url.rstrip("/"),
+        "referer": f"{base_url.rstrip('/')}/next/Fluid.html",
+        "user-agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+        ),
+    }
 
 
 def _form_action_url(html: str, current_page_url: str) -> str | None:
@@ -63,34 +93,41 @@ def login(
     Returns a requests.Session with auth cookies set; every request on it carries a timeout.
     """
     session = new_session(timeout)
-    session.headers.update(_common_headers(base_url))
+    # Start with browser-like HTML headers for the form; API headers are applied after login.
+    session.headers.update(_login_browser_headers(base_url))
 
     login_url = _login_page_url(base_url)
-    r = session.get(login_url, timeout=30, allow_redirects=True)
+    with _requests_cache_disabled():
+        r = session.get(login_url, timeout=30, allow_redirects=True)
     r.raise_for_status()
     csrf = _extract_csrf(r.text)
     if not csrf:
         raise ValueError(
-            "CSRF token not found on login page; page may have changed or URL may be wrong."
+            "CSRF token not found on login page; page may have changed or URL may be wrong. "
+            f"url={r.url!r} status={r.status_code} "
+            f"body={_body_snippet(r.content)!r}"
         )
     # POST to the form action URL (resolve from final page URL so /next/static/auth/j_spring_security_check works)
     check_url = _form_action_url(r.text, r.url) or _security_check_url(base_url)
-    r2 = session.post(
-        check_url,
-        data={
-            "j_username": username,
-            "j_password": password,
-            "CSRFToken": csrf,
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        allow_redirects=True,
-        timeout=30,
-    )
+    with _requests_cache_disabled():
+        r2 = session.post(
+            check_url,
+            data={
+                "j_username": username,
+                "j_password": password,
+                "CSRFToken": csrf,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            allow_redirects=True,
+            timeout=30,
+        )
     r2.raise_for_status()
     if _is_login_page(r2.text):
         raise ValueError(
             "Login failed: still on login page after POST (check username/password)."
         )
+    # Switch to API headers for subsequent REST calls; keep cookies in the jar.
+    session.headers.update(_common_headers(base_url))
     return session
 
 
@@ -104,7 +141,9 @@ def is_login_page_bytes(content: bytes) -> bool:
     if not content:
         return False
     try:
-        text = content.lstrip()[:2000].decode("utf-8", errors="replace")
+        text = content.lstrip()[:_LOGIN_PAGE_SCAN_BYTES].decode(
+            "utf-8", errors="replace"
+        )
     except (UnicodeDecodeError, AttributeError):
         return False
     return _is_login_page(text)
@@ -116,7 +155,8 @@ def is_session_valid(session: requests.Session, base_url: str) -> bool:
     """
     try:
         url = _login_page_url(base_url)
-        r = session.get(url, timeout=15)
+        with _requests_cache_disabled():
+            r = session.get(url, timeout=15)
         r.raise_for_status()
         return not _is_login_page(r.text)
     except requests.RequestException:
