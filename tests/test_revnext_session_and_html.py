@@ -11,7 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "packages" / "revnext"))
 
@@ -25,8 +25,10 @@ from revnext.notifications import _notifications_from_response
 from revnext.session import (
     _apply_cookies,
     _extract_csrf,
+    _looks_like_app_shell,
     is_login_page_bytes,
     load_session,
+    login,
     save_session,
 )
 
@@ -79,6 +81,68 @@ class HtmlDetectionTests(unittest.TestCase):
         self.assertEqual(
             _extract_csrf(_REALISTIC_LOGIN_HTML),
             "11f5c304-8530-4182-b133-0b233c6f6853",
+        )
+
+    def test_app_shell_without_csrf(self):
+        spa = (
+            "<!DOCTYPE html><html><head>"
+            '<meta http-equiv="content-type" content="text/html; charset=UTF-8">'
+            "<title>Revolution</title></head><body></body></html>"
+        )
+        self.assertTrue(_looks_like_app_shell(spa))
+        self.assertIsNone(_extract_csrf(spa))
+        self.assertFalse(_looks_like_app_shell(_REALISTIC_LOGIN_HTML))
+
+    def test_login_retries_after_app_shell(self):
+        spa = MagicMock(
+            text=(
+                "<!DOCTYPE html><html><head><title>Revolution</title></head>"
+                "<body></body></html>"
+            ),
+            content=(
+                b"<!DOCTYPE html><html><head><title>Revolution</title></head>"
+                b"<body></body></html>"
+            ),
+            url="https://example.test/next/Fluid.html",
+            status_code=200,
+            raise_for_status=MagicMock(),
+        )
+        form = MagicMock(
+            text=_REALISTIC_LOGIN_HTML,
+            content=_REALISTIC_LOGIN_HTML.encode("utf-8"),
+            url="https://example.test/next/static/auth/login.jsp",
+            status_code=200,
+            raise_for_status=MagicMock(),
+        )
+        post_ok = MagicMock(
+            text="<html><body>ok</body></html>",
+            status_code=200,
+            raise_for_status=MagicMock(),
+        )
+        mock_session = MagicMock()
+        mock_session.cookies = MagicMock()
+        mock_session.headers = {}
+        mock_session.get.side_effect = [spa, form]
+        mock_session.post.return_value = post_ok
+
+        with (
+            patch("revnext.session.new_session", return_value=mock_session),
+            patch("revnext.session._common_headers", return_value={}),
+        ):
+            result = login("https://example.test", "user", "pass", timeout=5)
+
+        self.assertIs(result, mock_session)
+        self.assertEqual(mock_session.get.call_count, 2)
+        mock_session.cookies.clear.assert_called_once()
+        mock_session.post.assert_called_once()
+        posted_data = mock_session.post.call_args.kwargs["data"]
+        self.assertEqual(
+            posted_data,
+            {
+                "j_username": "user",
+                "j_password": "pass",
+                "CSRFToken": "11f5c304-8530-4182-b133-0b233c6f6853",
+            },
         )
 
     def test_parse_json_classifies_realistic_login_as_login_page(self):
