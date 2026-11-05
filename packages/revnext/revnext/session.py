@@ -37,6 +37,11 @@ def _login_page_url(base_url: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", "next/Fluid.html")
 
 
+def _login_form_url(base_url: str) -> str:
+    """Explicit login form (preferred over Fluid.html for CSRF extraction)."""
+    return urljoin(base_url.rstrip("/") + "/", "next/static/auth/login.jsp")
+
+
 def _security_check_url(base_url: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", "next/j_spring_security_check")
 
@@ -82,6 +87,24 @@ def _extract_csrf(html: str) -> str | None:
     return None
 
 
+def _looks_like_app_shell(html: str) -> bool:
+    """True for the authenticated Fluid SPA shell (no login form / CSRF)."""
+    if not html or _is_login_page(html):
+        return False
+    head = html[:4000].lower()
+    return "<title>revolution</title>" in head
+
+
+def _get_login_form_response(
+    session: requests.Session, base_url: str
+) -> requests.Response:
+    """GET the login form URL (follows redirects)."""
+    with _requests_cache_disabled():
+        r = session.get(_login_form_url(base_url), timeout=30, allow_redirects=True)
+    r.raise_for_status()
+    return r
+
+
 def login(
     base_url: str,
     username: str,
@@ -91,16 +114,30 @@ def login(
     """
     Log in to Revolution Next: GET login page for CSRF and session cookie, POST to j_spring_security_check.
     Returns a requests.Session with auth cookies set; every request on it carries a timeout.
+
+    Fetches ``login.jsp`` directly (not Fluid.html). Fluid.html often returns the
+    authenticated SPA shell with no CSRF during re-login when a prior server session
+    still exists, which previously raised "CSRF token not found".
     """
     session = new_session(timeout)
     # Start with browser-like HTML headers for the form; API headers are applied after login.
     session.headers.update(_login_browser_headers(base_url))
 
-    login_url = _login_page_url(base_url)
-    with _requests_cache_disabled():
-        r = session.get(login_url, timeout=30, allow_redirects=True)
-    r.raise_for_status()
+    r = _get_login_form_response(session, base_url)
     csrf = _extract_csrf(r.text)
+
+    if not csrf and _looks_like_app_shell(r.text):
+        # Redirected into the SPA (server still considered us logged in). Clear
+        # cookies and retry the form so we can POST a fresh credential login.
+        logger.warning(
+            "RevNext login.jsp returned app shell without CSRF (url=%s); "
+            "clearing cookies and retrying the login form.",
+            r.url,
+        )
+        session.cookies.clear()
+        r = _get_login_form_response(session, base_url)
+        csrf = _extract_csrf(r.text)
+
     if not csrf:
         raise ValueError(
             "CSRF token not found on login page; page may have changed or URL may be wrong. "
